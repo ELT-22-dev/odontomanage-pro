@@ -20,6 +20,7 @@ import {
   LogOut,
   PanelLeft,
   ChevronDown,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useClinicBranding } from '@/hooks/useClinicBranding'
@@ -39,6 +40,7 @@ const NAV_ITEMS: NavItemDef[] = [
   { href: '/consultas', icon: <Stethoscope className="size-4" />, label: 'Consultas' },
   { href: '/financeiro', icon: <DollarSign className="size-4" />, label: 'Financeiro' },
   { href: '/prontuarios', icon: <ClipboardList className="size-4" />, label: 'Prontuarios' },
+  { href: '/assistente', icon: <Sparkles className="size-4" />, label: 'Assistente IA' },
 ]
 
 const BOTTOM_ITEMS: NavItemDef[] = [

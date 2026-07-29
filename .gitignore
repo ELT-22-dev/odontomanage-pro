@@ -10,8 +10,13 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.vite-out
+coverage
 *.local
 .env
+
+# Supabase CLI local link cache (project ref, org id, pooler url — machine-local, not secret)
+supabase/.temp/
 
 # Editor directories and files
 .vscode/*

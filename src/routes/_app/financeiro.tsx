@@ -22,20 +22,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from 'recharts'
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   Types
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-interface Transaction {
-  id: string; patient_id: string | null; patient_name: string | null
-  type: string; category: string; description: string | null
-  amount: string; payment_method: string; status: string
-  installments: string; current_installment: string
-  due_date: string | null; paid_date: string | null; created_at: string
-}
-
-type Period = 'this-month' | 'last-month' | 'last-3-months' | 'this-year' | 'all'
+import {
+  type Transaction, type Period, getPeriodRange, computeTotals, computeSummaryCounts,
+} from '@/lib/financeStats'
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Helpers
@@ -51,26 +40,6 @@ const CHART_COLORS = [
   'oklch(0.5 0.17 40)',
   'oklch(0.4 0.13 280)',
 ]
-
-function getPeriodRange(period: Period): { start: Date; end: Date } | null {
-  const now = new Date()
-  switch (period) {
-    case 'this-month':
-      return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now }
-    case 'last-month': {
-      const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      return { start: prev, end: new Date(now.getFullYear(), now.getMonth(), 0) }
-    }
-    case 'last-3-months': {
-      const threeAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1)
-      return { start: threeAgo, end: now }
-    }
-    case 'this-year':
-      return { start: new Date(now.getFullYear(), 0, 1), end: now }
-    case 'all':
-      return null
-  }
-}
 
 const STATUS_CONFIG: Record<string, { label: string; icon: typeof CheckCircle; color: string }> = {
   paid:     { label: 'Pago',      icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-800' },
@@ -153,30 +122,11 @@ function FinanceiroPage() {
 
   /* ── KPI totals (from in-range, not all) ── */
 
-  const totals = useMemo(() => {
-    let income = 0; let expense = 0; let pending = 0
-    for (const t of inRange) {
-      const amt = Number(t.amount) || 0
-      if (t.type === 'income') {
-        if (t.status === 'paid') income += amt
-        else if (t.status === 'pending') pending += amt
-      } else {
-        expense += amt
-      }
-    }
-    return { income, expense, pending, balance: income - expense }
-  }, [inRange])
+  const totals = useMemo(() => computeTotals(inRange), [inRange])
 
   /* ── summary counts ── */
 
-  const summaryCounts = useMemo(() => {
-    let incomeCount = 0; let expenseCount = 0
-    for (const t of inRange) {
-      if (t.type === 'income') incomeCount++
-      else expenseCount++
-    }
-    return { incomeCount, expenseCount, total: incomeCount + expenseCount }
-  }, [inRange])
+  const summaryCounts = useMemo(() => computeSummaryCounts(inRange), [inRange])
 
   /* ── chart data: monthly revenue vs expenses (last 6 months) ── */
 

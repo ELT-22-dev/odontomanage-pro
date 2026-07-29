@@ -7,6 +7,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/sonner'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import type { ReactNode } from 'react'
 import indexCss from '../index.css?url'
 
@@ -57,15 +58,19 @@ export const Route = createRootRoute({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
-      { title: 'Blink App' },
-      { name: 'description', content: 'An app built with Blink.' },
+      { title: 'OdontoManage Pro' },
+      { name: 'description', content: 'Sistema de gestao para clinicas odontologicas.' },
       { name: 'theme-color', content: '#0a0a0a' },
       { property: 'og:type', content: 'website' },
-      { property: 'og:title', content: 'Blink App' },
-      { property: 'og:description', content: 'An app built with Blink.' },
-      // Shared-shell SEO defaults — set these to the real brand/locale per app.
-      { property: 'og:site_name', content: 'Blink App' },
-      { property: 'og:locale', content: 'en_US' },
+      { property: 'og:title', content: 'OdontoManage Pro' },
+      { property: 'og:description', content: 'Sistema de gestao para clinicas odontologicas.' },
+      // Per-route head() (see each src/routes/_app/*.tsx) overrides the title per
+      // page. These are just the pre-hydration / crawler / share-preview defaults —
+      // this deployment is single-tenant, so hardcoding the product name here (vs.
+      // fetching the clinic's own branding from `clinic_settings`) is intentional;
+      // wiring the clinic's own name into <head> would need an SSR data loader.
+      { property: 'og:site_name', content: 'OdontoManage Pro' },
+      { property: 'og:locale', content: 'pt_BR' },
       { name: 'twitter:card', content: 'summary_large_image' },
     ],
     links: [
@@ -96,8 +101,8 @@ function RootDocument({ children }: { children: ReactNode }) {
             __html: JSON.stringify({
               '@context': 'https://schema.org',
               '@graph': [
-                { '@type': 'WebSite', name: 'Blink App', url: '/' },
-                { '@type': 'Organization', name: 'Blink App', url: '/', sameAs: [] },
+                { '@type': 'WebSite', name: 'OdontoManage Pro', url: '/' },
+                { '@type': 'Organization', name: 'OdontoManage Pro', url: '/', sameAs: [] },
               ],
             }),
           }}
@@ -113,7 +118,7 @@ function RootDocument({ children }: { children: ReactNode }) {
               route with pages under `src/routes/_app/`. Landing pages, marketing
               sites, content, and games stay full-bleed.
             */}
-            {children}
+            <ErrorBoundary>{children}</ErrorBoundary>
           </TooltipProvider>
         </QueryClientProvider>
         <Scripts />

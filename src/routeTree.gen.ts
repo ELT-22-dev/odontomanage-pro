@@ -16,6 +16,7 @@ import { Route as AppPacientesRouteImport } from './routes/_app/pacientes'
 import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
 import { Route as AppConsultasRouteImport } from './routes/_app/consultas'
 import { Route as AppConfiguracoesRouteImport } from './routes/_app/configuracoes'
+import { Route as AppAssistenteRouteImport } from './routes/_app/assistente'
 import { Route as AppAgendaRouteImport } from './routes/_app/agenda'
 import { Route as AppPacientesIndexRouteImport } from './routes/_app/pacientes/index'
 import { Route as AppPacientesNovoRouteImport } from './routes/_app/pacientes/novo'
@@ -55,6 +56,11 @@ const AppConfiguracoesRoute = AppConfiguracoesRouteImport.update({
   path: '/configuracoes',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAssistenteRoute = AppAssistenteRouteImport.update({
+  id: '/assistente',
+  path: '/assistente',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAgendaRoute = AppAgendaRouteImport.update({
   id: '/agenda',
   path: '/agenda',
@@ -79,6 +85,7 @@ const AppPacientesIdRoute = AppPacientesIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/agenda': typeof AppAgendaRoute
+  '/assistente': typeof AppAssistenteRoute
   '/configuracoes': typeof AppConfiguracoesRoute
   '/consultas': typeof AppConsultasRoute
   '/financeiro': typeof AppFinanceiroRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/agenda': typeof AppAgendaRoute
+  '/assistente': typeof AppAssistenteRoute
   '/configuracoes': typeof AppConfiguracoesRoute
   '/consultas': typeof AppConsultasRoute
   '/financeiro': typeof AppFinanceiroRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_app/agenda': typeof AppAgendaRoute
+  '/_app/assistente': typeof AppAssistenteRoute
   '/_app/configuracoes': typeof AppConfiguracoesRoute
   '/_app/consultas': typeof AppConsultasRoute
   '/_app/financeiro': typeof AppFinanceiroRoute
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/agenda'
+    | '/assistente'
     | '/configuracoes'
     | '/consultas'
     | '/financeiro'
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/agenda'
+    | '/assistente'
     | '/configuracoes'
     | '/consultas'
     | '/financeiro'
@@ -141,6 +152,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/_app/agenda'
+    | '/_app/assistente'
     | '/_app/configuracoes'
     | '/_app/consultas'
     | '/_app/financeiro'
@@ -207,6 +219,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConfiguracoesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/assistente': {
+      id: '/_app/assistente'
+      path: '/assistente'
+      fullPath: '/assistente'
+      preLoaderRoute: typeof AppAssistenteRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/agenda': {
       id: '/_app/agenda'
       path: '/agenda'
@@ -256,6 +275,7 @@ const AppPacientesRouteWithChildren = AppPacientesRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAgendaRoute: typeof AppAgendaRoute
+  AppAssistenteRoute: typeof AppAssistenteRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
   AppConsultasRoute: typeof AppConsultasRoute
   AppFinanceiroRoute: typeof AppFinanceiroRoute
@@ -266,6 +286,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAgendaRoute: AppAgendaRoute,
+  AppAssistenteRoute: AppAssistenteRoute,
   AppConfiguracoesRoute: AppConfiguracoesRoute,
   AppConsultasRoute: AppConsultasRoute,
   AppFinanceiroRoute: AppFinanceiroRoute,

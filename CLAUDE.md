@@ -11,23 +11,31 @@ clinic gets its own separate Supabase project + Google Cloud credentials + hosti
 Originally scaffolded by Blink (blink.new) with `@blinkdotnew/sdk` as the backend. That backend
 was fully removed — see "History" below. Everything now runs on Supabase.
 
+Two companion docs live in `docs/`: `IMPLANTACAO.md` (deploying a fresh instance for a new clinic)
+and `ARQUITETURA.md` (architecture review — what's solid, what's technical debt, prioritized
+roadmap). Read `ARQUITETURA.md` before proposing a structural change (new dependency, new layer,
+big refactor) — it records the reasoning behind past calls so it doesn't get re-litigated.
+
 ## Commands
 
 ```bash
 npm run dev              # dev server on :3000 (fixed port, strictPort)
 npm run build             # vite build (client+SSR) then flattens to dist/ (see Deployment)
 npm run preview           # preview the production build
+npm test                  # vitest run — unit tests (src/**/*.test.ts), see ARQUITETURA.md 3.1
+npm run test:watch        # vitest in watch mode
 npx tsc --noEmit          # type-check (fast, no dev server needed) — run this after any change
 npm run lint:types        # same as above
-npm run lint:js           # eslint
+npm run lint:js           # eslint (eslint.config.js — see ARQUITETURA.md 3.2 for its history)
 npm run lint:css          # stylelint --fix
 npm run lint              # runs all three via `bun run` — bun is NOT installed in this env;
                            # run the three lint:* scripts individually with npm/npx instead
 ```
 
-There is no test suite (no Jest/Vitest/Playwright config in the repo). Verification in this
-project has been done via manual `npx tsc --noEmit` + ad-hoc Playwright scripts run from outside
-the repo (not checked in, except `scripts/security_check_rls.mjs` — see below).
+Unit tests use Vitest + Testing Library (`vitest.config.ts` — deliberately separate from
+`vite.config.ts`, which loads the TanStack Start SSR/prerender/codegen plugin that unit tests don't
+need). Test files sit next to what they test (`src/lib/financeStats.test.ts`, etc.). There is no
+Playwright/e2e suite yet — see `docs/ARQUITETURA.md` for what's covered and what isn't.
 
 ## Architecture
 
@@ -105,6 +113,30 @@ own `clinic_settings` table instead, fetched with a plain query. That table's SE
 intentionally public (`using (true)`) so the logo/name can render on the pre-login screen too —
 this is safe only because each deployment is single-tenant (one clinic's Supabase project), so a
 public-read row is that clinic's own public branding, not cross-tenant leakage.
+
+### AI assistant & clinical note summarization (`supabase/functions/ai`, `src/lib/ai.ts`)
+
+The app has no backend, so the Anthropic API key (a secret) can't ship in the browser bundle —
+it lives only as a Supabase Edge Function secret. `supabase/functions/ai/index.ts` is a thin
+proxy: it verifies the caller's Supabase session (`supabase.auth.getUser()` against the
+`Authorization` header), then calls the Claude API (`claude-opus-5`) and returns the result. It
+never touches Postgres directly — the browser already fetched whatever clinic data it needs
+(through the normal RLS-protected `blink.db.table(...)` calls) and sends it in the request body;
+the function's only job is to hold the API key and relay the call. This split was chosen over a
+Vercel serverless function specifically because the app can be hosted on Vercel **or** Hostinger
+(plain static files — see `docs/IMPLANTACAO.md`), and Supabase is the one dependency present in
+both deployment paths.
+
+`src/lib/ai.ts` calls it via `supabase.functions.invoke('ai', ...)` (which attaches the session
+token automatically) and exposes two actions: `chat` (the "Assistente IA" page,
+`src/routes/_app/assistente.tsx` — answers questions using a JSON snapshot of patients/agenda/
+financeiro built client-side) and `summarize` (the "Resumir com IA" button in the prontuarios
+create/edit dialog — turns raw dentist notes into a structured draft). **Both are drafts by
+design**: the summarize action never writes to the database itself, it only fills the same
+editable form fields the user already reviews before clicking Salvar — deliberately, given this
+touches patient medical records. Deploying/updating the function requires the Supabase CLI
+(`supabase functions deploy ai`) and a secret (`supabase secrets set ANTHROPIC_API_KEY=sk-ant-...`)
+— there is no way to do either from the app itself.
 
 ### CSV patient import (`src/lib/patientImport.ts`)
 

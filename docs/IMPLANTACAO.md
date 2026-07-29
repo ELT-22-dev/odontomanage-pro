@@ -44,7 +44,33 @@ A última linha (`VITE_GOOGLE_CLIENT_ID`) só é necessária se for usar a integ
 Calendar (passo 3). Sem ela, o resto do sistema funciona normalmente — o botão de conectar ao
 Google Calendar simplesmente não vai funcionar.
 
-## 3. Google Calendar (opcional)
+## 3. Assistente de IA (opcional)
+
+O sistema tem dois recursos de IA (assistente de chat e resumo automatico de prontuario, ambos em
+"Assistente IA" no menu e no formulario de Prontuarios). Eles dependem de uma **Supabase Edge
+Function** — a chave da API da Anthropic e secreta e nunca pode ficar no navegador, entao ela mora
+apenas nessa function, nao no `.env` do app.
+
+1. Ter uma chave de API da Anthropic (console.anthropic.com).
+2. Instalar a [Supabase CLI](https://supabase.com/docs/guides/cli) e fazer login (`supabase login`).
+3. Na raiz do projeto, vincular ao projeto Supabase da clinica:
+   ```
+   supabase link --project-ref SEU-PROJETO-REF
+   ```
+   (o `PROJETO-REF` fica em Settings → General no painel do Supabase)
+4. Publicar a function e configurar o segredo:
+   ```
+   supabase functions deploy ai
+   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+   ```
+5. Nao precisa de nenhuma variavel nova no `.env` do app — o navegador so chama
+   `supabase.functions.invoke('ai', ...)`, que ja usa a URL/chave do Supabase que voce configurou
+   no passo 2.
+
+Sem esse passo, os botoes de IA aparecem no sistema mas retornam erro ao serem usados — o resto do
+sistema funciona normalmente.
+
+## 4. Google Calendar (opcional)
 
 Só necessário se a clínica quiser que consultas apareçam automaticamente no Google Agenda do
 dentista.
@@ -58,15 +84,15 @@ dentista.
 4. **APIs & Services → Credentials → Create Credentials → OAuth client ID**:
    - Tipo: **Web application**
    - **Authorized JavaScript origins**: adicionar a URL onde o sistema vai rodar
-     (`http://localhost:3000` em desenvolvimento; a URL de produção depois do deploy — passo 4)
+     (`http://localhost:3000` em desenvolvimento; a URL de produção depois do deploy — passo 5)
    - Copiar o **Client ID** gerado → colar em `VITE_GOOGLE_CLIENT_ID` no `.env`
    - **Nunca** usar o "Client secret" no código do app (não é necessário nesta integração).
 
-Depois de hospedar o sistema (passo 4) com uma URL final, **volte aqui e adicione essa URL** em
+Depois de hospedar o sistema (passo 5) com uma URL final, **volte aqui e adicione essa URL** em
 "Authorized JavaScript origins" — sem isso a conexão com o Google falha com erro de origem não
 autorizada.
 
-## 4. Hospedagem
+## 5. Hospedagem
 
 O `npm run build` gera uma pasta `dist/` **100% estática** (HTML/JS/CSS) — não roda nenhum
 servidor Node em produção, então qualquer hospedagem de arquivos estáticos serve.
@@ -93,16 +119,17 @@ servidor Node em produção, então qualquer hospedagem de arquivos estáticos s
 
 ### Depois de hospedar, sempre atualizar
 
-- **Google Cloud Console** → Authorized JavaScript origins → adicionar a URL final (passo 3).
+- **Google Cloud Console** → Authorized JavaScript origins → adicionar a URL final (passo 4).
 - **Supabase** → Authentication → URL Configuration → atualizar a "Site URL" para a URL final
   (usada nos links de "esqueci minha senha" — se não atualizar, o link de redefinição de senha
   aponta para o lugar errado).
 
-## 5. Checklist rápido para uma clínica nova
+## 6. Checklist rápido para uma clínica nova
 
 - [ ] Projeto Supabase criado, os 4 arquivos SQL rodados na ordem
 - [ ] Confirmação de email desativada (ou aceitar o fluxo com confirmação, se preferir)
 - [ ] `.env` preenchido com URL + chave anon do Supabase
+- [ ] (Opcional) Edge Function `ai` publicada e `ANTHROPIC_API_KEY` configurada (passo 3)
 - [ ] (Opcional) Projeto Google Cloud criado, Calendar API ativada, Client ID gerado
 - [ ] Build gerado e hospedado (Vercel ou Hostinger)
 - [ ] Domínio apontando para a hospedagem
