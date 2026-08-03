@@ -1,59 +1,56 @@
-# Enhanced Vite React TypeScript Template
+# OdontoManage Pro
 
-This template includes built-in detection for missing CSS variables between your Tailwind config and CSS files.
+Sistema de gestao para clinicas odontologicas: pacientes, agenda, consultas, financeiro e
+prontuario, com sincronizacao com Google Calendar, lembretes via WhatsApp e um assistente de IA
+para consultas rapidas e resumo de anotacoes clinicas.
 
-## Features
+Projetado para **uma clinica por instancia** (nao e um SaaS multi-tenant) — cada clinica roda com
+seu proprio projeto Supabase, credenciais do Google Cloud e hospedagem.
 
-- **CSS Variable Detection**: Automatically detects if CSS variables referenced in `tailwind.config.cjs` are defined in `src/index.css`
-- **Enhanced Linting**: Includes ESLint, Stylelint, and custom CSS variable validation
-- **Shadcn/ui**: Pre-configured with all Shadcn components
-- **Modern Stack**: Vite + React + TypeScript + Tailwind CSS
+## Stack
 
-## Available Scripts
+- **React 19 + TypeScript**, roteamento via **TanStack Router** (file-based)
+- **Supabase** (Postgres + Auth) como unico backend — sem servidor proprio; todo acesso a dados
+  passa direto do browser para o Postgres, protegido por **Row Level Security**
+- **Tailwind CSS 4** + shadcn/ui (Radix primitives)
+- **Vitest + Testing Library** para testes unitarios
+- Uma **Supabase Edge Function** isolada para o assistente de IA (Claude API), a unica peca que
+  precisa de um segredo de servidor
+
+## Funcionalidades
+
+- Cadastro de pacientes (com importacao em massa via CSV)
+- Agenda de consultas com sincronizacao opcional com Google Calendar
+- Controle financeiro (receitas, despesas, parcelamentos)
+- Prontuario/anotacoes clinicas, com resumo assistido por IA
+- Lembretes de consulta via WhatsApp (link direto, sem integracao paga)
+- Assistente de IA que responde perguntas sobre a agenda, pacientes e financeiro da clinica
+- Marca da clinica (nome/logo) configuravel
+
+## Rodando localmente
 
 ```bash
-# Run all linting (includes CSS variable check)
-npm run lint
-
-# Check only CSS variables
-npm run check:css-vars
-
-# Individual linting
-npm run lint:js    # ESLint
-npm run lint:css   # Stylelint
+npm install --legacy-peer-deps
+cp .env.example .env   # preencha com as credenciais do seu projeto Supabase
+npm run dev             # http://localhost:3000
 ```
 
-## CSS Variable Detection
+Veja [docs/IMPLANTACAO.md](docs/IMPLANTACAO.md) para o guia completo de deploy de uma instancia
+nova (schema SQL, Google Calendar, Edge Function de IA) e
+[docs/ARQUITETURA.md](docs/ARQUITETURA.md) para as decisoes de arquitetura e o que ainda e divida
+tecnica.
 
-The template includes a custom script that:
+## Comandos
 
-1. **Parses `tailwind.config.cjs`** to find all `var(--variable)` references
-2. **Parses `src/index.css`** to find all defined CSS variables (`--variable:`)
-3. **Cross-references** them to find missing definitions
-4. **Reports undefined variables** with clear error messages
-
-### Example Output
-
-When CSS variables are missing:
-```
-❌ Undefined CSS variables found in tailwind.config.cjs:
-   --sidebar-background
-   --sidebar-foreground
-   --sidebar-primary
-
-Add these variables to src/index.css
+```bash
+npm run dev              # servidor de dev na porta 3000
+npm run build             # build de producao
+npm test                  # testes unitarios (Vitest)
+npx tsc --noEmit           # checagem de tipos
+npm run lint:js            # ESLint
+npm run lint:css           # Stylelint
 ```
 
-When all variables are defined:
-```
-✅ All CSS variables in tailwind.config.cjs are defined
-```
+## Licenca
 
-## How It Works
-
-The detection happens during the `npm run lint` command, which will:
-- Exit with error code 1 if undefined variables are found
-- Show exactly which variables need to be added to your CSS file
-- Integrate seamlessly with your development workflow
-
-This prevents runtime CSS issues where Tailwind classes reference undefined CSS variables.
+Projeto pessoal, sem licenca de uso definida.
