@@ -18,6 +18,10 @@ coverage
 # Supabase CLI local link cache (project ref, org id, pooler url — machine-local, not secret)
 supabase/.temp/
 
+# git-lfs on Windows sometimes mis-resolves its null-device hook path and
+# writes hook files here instead of discarding them — harmless, but noisy.
+/dev/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

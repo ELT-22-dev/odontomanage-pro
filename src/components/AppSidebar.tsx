@@ -249,11 +249,11 @@ function SidebarNavItem({
       to={item.href}
       onClick={onClick}
       className={cn(
-        'flex items-center gap-2.5 rounded-md text-sm transition-colors cursor-pointer',
+        'flex items-center gap-2.5 rounded-md text-sm transition-colors cursor-pointer border',
         collapsed ? 'justify-center w-8 h-8 mx-auto' : 'px-3 py-2 w-full',
         active
-          ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
-          : 'text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+          ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium border-primary/50 glow-primary'
+          : 'text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground border-transparent'
       )}
     >
       <span className="shrink-0">{item.icon}</span>

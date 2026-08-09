@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { TRANSACTION_STATUS } from '@/lib/statusStyles'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -41,10 +42,8 @@ const CHART_COLORS = [
   'oklch(0.4 0.13 280)',
 ]
 
-const STATUS_CONFIG: Record<string, { label: string; icon: typeof CheckCircle; color: string }> = {
-  paid:     { label: 'Pago',      icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-800' },
-  pending:  { label: 'Pendente',  icon: AlertCircle, color: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800' },
-  cancelled:{ label: 'Cancelado', icon: XCircle,     color: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800' },
+const STATUS_ICON: Record<string, typeof CheckCircle> = {
+  paid: CheckCircle, pending: AlertCircle, cancelled: XCircle,
 }
 
 const NEXT_STATUS: Record<string, string> = {
@@ -202,7 +201,7 @@ function FinanceiroPage() {
     try {
       await blink.db.table('transactions').update(id, { status: next } as any)
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      toast.success(`Status: ${STATUS_CONFIG[next]?.label ?? next}`)
+      toast.success(`Status: ${TRANSACTION_STATUS[next]?.label ?? next}`)
     } catch (err: any) { toast.error(err?.message || 'Erro') }
   }
 
@@ -268,7 +267,7 @@ function FinanceiroPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-border/60">
               <CardContent className="p-4 flex items-center gap-4">
-                <div className="flex items-center justify-center size-10 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 shrink-0">
+                <div className="flex items-center justify-center size-10 rounded-lg bg-emerald-500/15 text-emerald-400 shrink-0">
                   <TrendingUp className="size-5" />
                 </div>
                 <div>
@@ -279,7 +278,7 @@ function FinanceiroPage() {
             </Card>
             <Card className="border-border/60">
               <CardContent className="p-4 flex items-center gap-4">
-                <div className="flex items-center justify-center size-10 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 shrink-0">
+                <div className="flex items-center justify-center size-10 rounded-lg bg-amber-500/15 text-amber-400 shrink-0">
                   <Clock className="size-5" />
                 </div>
                 <div>
@@ -290,7 +289,7 @@ function FinanceiroPage() {
             </Card>
             <Card className="border-border/60">
               <CardContent className="p-4 flex items-center gap-4">
-                <div className="flex items-center justify-center size-10 rounded-lg bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 shrink-0">
+                <div className="flex items-center justify-center size-10 rounded-lg bg-red-500/15 text-red-400 shrink-0">
                   <TrendingDown className="size-5" />
                 </div>
                 <div>
@@ -299,18 +298,18 @@ function FinanceiroPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-border/60">
+            <Card className={cn('border-border/60', totals.balance >= 0 && 'border-primary/50 glow-primary')}>
               <CardContent className="p-4 flex items-center gap-4">
                 <div className={cn(
                   'flex items-center justify-center size-10 rounded-lg shrink-0',
                   totals.balance >= 0
-                    ? 'bg-chart-1/10 text-chart-1'
-                    : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-red-500/15 text-red-400'
                 )}>
                   <DollarSign className="size-5" />
                 </div>
                 <div>
-                  <p className={cn('text-xl font-bold', totals.balance >= 0 ? 'text-foreground' : 'text-destructive')}>
+                  <p className={cn('text-xl font-bold', totals.balance >= 0 ? 'text-primary' : 'text-destructive')}>
                     {formatCurrency(totals.balance)}
                   </p>
                   <p className="text-xs text-muted-foreground">Saldo</p>
@@ -471,15 +470,15 @@ function FinanceiroPage() {
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
                   {filtered.map((t) => {
-                    const statusCfg = STATUS_CONFIG[t.status] ?? STATUS_CONFIG.pending
-                    const StatusIcon = statusCfg.icon
+                    const statusCfg = TRANSACTION_STATUS[t.status] ?? TRANSACTION_STATUS.pending
+                    const StatusIcon = STATUS_ICON[t.status] ?? STATUS_ICON.pending
                     return (
                       <div key={t.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors group">
                         <div className={cn(
                           'flex items-center justify-center size-9 rounded-lg shrink-0',
                           t.type === 'income'
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                            : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                            ? 'bg-emerald-500/15 text-emerald-400'
+                            : 'bg-red-500/15 text-red-400'
                         )}>
                           {t.type === 'income' ? <TrendingUp className="size-4" /> : <TrendingDown className="size-4" />}
                         </div>
@@ -494,7 +493,7 @@ function FinanceiroPage() {
                               className="cursor-pointer shrink-0"
                               title="Clique para alterar status"
                             >
-                              <Badge className={cn('gap-1 text-[10px] px-1.5 py-0', statusCfg.color)}>
+                              <Badge variant="outline" className={cn('gap-1 text-[10px] px-1.5 py-0 font-medium', statusCfg.className)}>
                                 <StatusIcon className="size-2.5" />
                                 {statusCfg.label}
                               </Badge>
@@ -549,8 +548,8 @@ function FinanceiroPage() {
                     'flex-1 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer',
                     form.type === t
                       ? t === 'income'
-                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                        : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                        ? 'bg-emerald-500/15 text-emerald-400'
+                        : 'bg-red-500/15 text-red-400'
                       : 'bg-muted text-muted-foreground'
                   )}
                 >

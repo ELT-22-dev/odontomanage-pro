@@ -9,12 +9,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/StatusBadge'
+import { PATIENT_STATUS } from '@/lib/statusStyles'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
 interface Patient {
@@ -57,19 +57,6 @@ function PatientsPage() {
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao excluir')
     }
-  }
-
-  const statusBadge = (status: string) => {
-    const isActive = status === 'active'
-    return (
-      <Badge variant="secondary" className={cn(
-        'text-xs',
-        isActive ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-          : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-      )}>
-        {isActive ? 'Ativo' : 'Inativo'}
-      </Badge>
-    )
   }
 
   return (
@@ -133,7 +120,7 @@ function PatientsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
-                      {statusBadge(p.status)}
+                      <StatusBadge map={PATIENT_STATUS} status={p.status} />
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
                       {p.cpf && <span>CPF: {p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}</span>}

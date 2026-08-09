@@ -13,7 +13,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/StatusBadge'
+import { RECORD_TYPE_STATUS } from '@/lib/statusStyles'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -209,29 +210,9 @@ function ProntuariosPage() {
     return icons[type] || <FileText className="size-4" />
   }
 
-  const recordTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      note: 'Evolucao', diagnosis: 'Diagnostico',
-      prescription: 'Receita', treatment: 'Tratamento',
-    }
-    return labels[type] || type
-  }
+  const recordTypeLabel = (type: string) => RECORD_TYPE_STATUS[type]?.label ?? type
 
-  const recordTypeColors = (type: string) => {
-    const colors: Record<string, string> = {
-      note: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-      diagnosis: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-      prescription: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-      treatment: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    }
-    return colors[type] || ''
-  }
-
-  const recordTypeBadge = (type: string) => (
-    <Badge variant="secondary" className={cn('text-[10px] px-1.5', recordTypeColors(type))}>
-      {recordTypeLabel(type)}
-    </Badge>
-  )
+  const recordTypeColors = (type: string) => RECORD_TYPE_STATUS[type]?.className ?? ''
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('pt-BR', {
@@ -253,7 +234,7 @@ function ProntuariosPage() {
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                {recordTypeBadge(selectedRecord.record_type)}
+                <StatusBadge map={RECORD_TYPE_STATUS} status={selectedRecord.record_type} className="text-[10px] px-1.5" />
               </div>
               <h2 className="text-lg font-semibold text-foreground">{selectedRecord.title}</h2>
               <p className="text-sm text-muted-foreground">
@@ -313,8 +294,8 @@ function ProntuariosPage() {
           )}
 
           {selectedRecord.diagnosis && (
-            <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800 print:bg-amber-50 print:border-amber-200">
-              <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-1 uppercase tracking-wider">
+            <div className="bg-amber-500/10 rounded-lg p-4 border border-amber-500/30 print:bg-amber-50 print:border-amber-200">
+              <p className="text-xs font-medium text-amber-400 mb-1 uppercase tracking-wider print:text-amber-700">
                 Diagnostico
               </p>
               <p className="text-sm whitespace-pre-wrap text-foreground">{selectedRecord.diagnosis}</p>
@@ -322,8 +303,8 @@ function ProntuariosPage() {
           )}
 
           {selectedRecord.treatment_plan && (
-            <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-lg p-4 border border-emerald-200 dark:border-emerald-800 print:bg-emerald-50 print:border-emerald-200">
-              <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-1 uppercase tracking-wider">
+            <div className="bg-emerald-500/10 rounded-lg p-4 border border-emerald-500/30 print:bg-emerald-50 print:border-emerald-200">
+              <p className="text-xs font-medium text-emerald-400 mb-1 uppercase tracking-wider print:text-emerald-700">
                 Plano de Tratamento
               </p>
               <p className="text-sm whitespace-pre-wrap text-foreground">{selectedRecord.treatment_plan}</p>
@@ -331,8 +312,8 @@ function ProntuariosPage() {
           )}
 
           {selectedRecord.prescriptions && (
-            <div className="bg-purple-50 dark:bg-purple-950/30 rounded-lg p-4 border border-purple-200 dark:border-purple-800 print:bg-purple-50 print:border-purple-200">
-              <p className="text-xs font-medium text-purple-700 dark:text-purple-400 mb-1 uppercase tracking-wider">
+            <div className="bg-purple-500/10 rounded-lg p-4 border border-purple-500/30 print:bg-purple-50 print:border-purple-200">
+              <p className="text-xs font-medium text-purple-400 mb-1 uppercase tracking-wider print:text-purple-700">
                 Receitas / Prescricoes
               </p>
               <p className="text-sm whitespace-pre-wrap text-foreground">{selectedRecord.prescriptions}</p>
@@ -371,7 +352,7 @@ function ProntuariosPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold truncate">{record.title}</p>
-              {recordTypeBadge(record.record_type)}
+              <StatusBadge map={RECORD_TYPE_STATUS} status={record.record_type} className="text-[10px] px-1.5" />
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">{record.patient_name}</p>
             <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
@@ -434,20 +415,20 @@ function ProntuariosPage() {
 
       {/* Statistics cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-border/60">
+        <Card className="border-primary/50 glow-primary">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="flex items-center justify-center size-10 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 shrink-0">
+            <div className="flex items-center justify-center size-10 rounded-lg bg-primary/10 text-primary shrink-0">
               <ClipboardList className="size-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{stats.total}</p>
+              <p className="text-2xl font-bold text-primary">{stats.total}</p>
               <p className="text-xs text-muted-foreground">Total de registros</p>
             </div>
           </CardContent>
         </Card>
         <Card className="border-border/60">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="flex items-center justify-center size-10 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 shrink-0">
+            <div className="flex items-center justify-center size-10 rounded-lg bg-emerald-500/15 text-emerald-400 shrink-0">
               <CalendarDays className="size-5" />
             </div>
             <div>
@@ -458,7 +439,7 @@ function ProntuariosPage() {
         </Card>
         <Card className="border-border/60">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="flex items-center justify-center size-10 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 shrink-0">
+            <div className="flex items-center justify-center size-10 rounded-lg bg-purple-500/15 text-purple-400 shrink-0">
               <BarChart3 className="size-5" />
             </div>
             <div className="min-w-0">

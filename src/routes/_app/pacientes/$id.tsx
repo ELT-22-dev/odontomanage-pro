@@ -7,10 +7,10 @@ import {
   CalendarDays, Stethoscope, FileText, Clock, ChevronRight, MessageCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { cn } from '@/lib/utils'
+import { StatusBadge } from '@/components/StatusBadge'
+import { PATIENT_STATUS, APPOINTMENT_STATUS } from '@/lib/statusStyles'
 import { toast } from 'sonner'
 import { openWhatsApp, buildAppointmentReminderMessage, buildGreetingMessage } from '@/lib/whatsapp'
 
@@ -113,24 +113,6 @@ function PatientDetailPage() {
     )
   }
 
-  const statusBadge = (s: string) => (
-    <Badge variant="secondary" className={cn(
-      'text-xs',
-      s === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-    )}>
-      {s === 'active' ? 'Ativo' : 'Inativo'}
-    </Badge>
-  )
-
-  const apptStatusBadge = (status: string) => {
-    const labels: Record<string, string> = {
-      scheduled: 'Agendada', confirmed: 'Confirmada', in_progress: 'Em atendimento',
-      completed: 'Finalizada', cancelled: 'Cancelada', no_show: 'Faltou',
-    }
-    return <Badge variant="secondary" className="text-xs">{labels[status] || status}</Badge>
-  }
-
   return (
     <div className="p-4 md:p-6 space-y-6 animate-fade-in max-w-4xl">
       {/* Header */}
@@ -148,7 +130,7 @@ function PatientDetailPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight text-foreground">{patient.name}</h1>
-                <div className="flex gap-2 mt-0.5">{statusBadge(patient.status)}</div>
+                <div className="flex gap-2 mt-0.5"><StatusBadge map={PATIENT_STATUS} status={patient.status} /></div>
               </div>
             </div>
           </div>
@@ -264,7 +246,7 @@ function PatientDetailPage() {
                       <p className="text-sm font-medium">{a.type}</p>
                       {a.dentist_name && <p className="text-xs text-muted-foreground">Dr(a). {a.dentist_name}</p>}
                     </div>
-                    {apptStatusBadge(a.status)}
+                    <StatusBadge map={APPOINTMENT_STATUS} status={a.status} />
                     <ChevronRight className="size-4 text-muted-foreground/30" />
                   </CardContent>
                 </Card>

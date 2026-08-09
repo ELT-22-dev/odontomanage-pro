@@ -13,7 +13,8 @@ import { deleteEvent as deleteGoogleEvent } from '@/lib/googleCalendar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/StatusBadge'
+import { APPOINTMENT_STATUS } from '@/lib/statusStyles'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger, DropdownMenuSeparator,
@@ -173,19 +174,6 @@ function ConsultasPage() {
     } catch (err: any) { toast.error(err?.message || 'Erro') }
   }
 
-  const statusBadge = (status: string) => {
-    const map: Record<string, { label: string; cls: string }> = {
-      scheduled: { label: 'Agendada', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-      confirmed: { label: 'Confirmada', cls: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
-      in_progress: { label: 'Em atend.', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-      completed: { label: 'Finalizada', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-      cancelled: { label: 'Cancelada', cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
-      no_show: { label: 'Faltou', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
-    }
-    const s = map[status] || { label: status, cls: '' }
-    return <Badge variant="secondary" className={cn('text-[10px] px-1.5', s.cls)}>{s.label}</Badge>
-  }
-
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { all: appointments.length }
     for (const a of appointments) {
@@ -230,29 +218,29 @@ function ConsultasPage() {
               icon={<CalendarDays className="size-4" />}
               label="Hoje"
               value={stats.todayCount}
-              color="text-sky-600 dark:text-sky-400"
-              bg="bg-sky-50 dark:bg-sky-950/40"
+              color="text-blue-400"
+              bg="bg-blue-500/10"
             />
             <StatsCard
               icon={<CalendarRange className="size-4" />}
               label="Semana"
               value={stats.weekCount}
-              color="text-violet-600 dark:text-violet-400"
-              bg="bg-violet-50 dark:bg-violet-950/40"
+              color="text-purple-400"
+              bg="bg-purple-500/10"
             />
             <StatsCard
               icon={<TrendingUp className="size-4" />}
               label="Mês"
               value={stats.monthCount}
-              color="text-emerald-600 dark:text-emerald-400"
-              bg="bg-emerald-50 dark:bg-emerald-950/40"
+              color="text-primary"
+              bg="bg-primary/10"
             />
             <StatsCard
               icon={<Percent className="size-4" />}
               label="Finalizadas"
               value={`${stats.rate}%`}
-              color="text-amber-600 dark:text-amber-400"
-              bg="bg-amber-50 dark:bg-amber-950/40"
+              color="text-amber-400"
+              bg="bg-amber-500/10"
             />
           </div>
 
@@ -413,14 +401,14 @@ function ConsultasPage() {
                       </div>
 
                       {/* Status badge */}
-                      {statusBadge(a.status)}
+                      <StatusBadge map={APPOINTMENT_STATUS} status={a.status} className="text-[10px] px-1.5" />
 
                       {/* Quick actions — visible on row hover */}
                       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="size-7 hover:bg-emerald-100 hover:text-emerald-700 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-400"
+                          className="size-7 hover:bg-emerald-500/15 hover:text-emerald-400"
                           title="Enviar lembrete (WhatsApp)"
                           onClick={() => sendReminder(a)}
                         >
@@ -430,7 +418,7 @@ function ConsultasPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="size-7 hover:bg-green-100 hover:text-green-700 dark:hover:bg-green-900/30 dark:hover:text-green-400"
+                            className="size-7 hover:bg-emerald-500/15 hover:text-emerald-400"
                             title="Confirmar"
                             onClick={() => updateStatus(a.id, 'confirmed')}
                           >
@@ -441,7 +429,7 @@ function ConsultasPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="size-7 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30 dark:hover:text-amber-400"
+                            className="size-7 hover:bg-amber-500/15 hover:text-amber-400"
                             title="Iniciar atendimento"
                             onClick={() => updateStatus(a.id, 'in_progress')}
                           >
@@ -452,7 +440,7 @@ function ConsultasPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="size-7 hover:bg-emerald-100 hover:text-emerald-700 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-400"
+                            className="size-7 hover:bg-emerald-500/15 hover:text-emerald-400"
                             title="Finalizar"
                             onClick={() => updateStatus(a.id, 'completed')}
                           >

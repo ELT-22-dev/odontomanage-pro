@@ -12,7 +12,8 @@ import { useGoogleCalendar } from '@/hooks/useGoogleCalendar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/StatusBadge'
+import { APPOINTMENT_STATUS } from '@/lib/statusStyles'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -161,19 +162,6 @@ function AgendaPage() {
     } catch (err: any) { toast.error(err?.message || 'Erro') }
   }
 
-  const statusBadge = (status: string) => {
-    const map: Record<string, { label: string; cls: string }> = {
-      scheduled: { label: 'Agendada', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-      confirmed: { label: 'Confirmada', cls: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
-      in_progress: { label: 'Em atend.', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-      completed: { label: 'Finalizada', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-      cancelled: { label: 'Cancelada', cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
-      no_show: { label: 'Faltou', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
-    }
-    const s = map[status] || { label: status, cls: '' }
-    return <Badge variant="secondary" className={cn('text-[10px] px-1.5', s.cls)}>{s.label}</Badge>
-  }
-
   return (
     <div className="p-4 md:p-6 space-y-6 animate-fade-in">
       {/* Header */}
@@ -258,7 +246,7 @@ function AgendaPage() {
                       {a.type}{a.dentist_name ? ` · Dr(a). ${a.dentist_name}` : ''}{a.room ? ` · Sala ${a.room}` : ''}
                     </p>
                   </div>
-                  {statusBadge(a.status)}
+                  <StatusBadge map={APPOINTMENT_STATUS} status={a.status} className="text-[10px] px-1.5" />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="size-7 opacity-0 group-hover:opacity-100 transition-opacity">

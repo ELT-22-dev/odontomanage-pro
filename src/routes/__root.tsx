@@ -17,7 +17,7 @@ import indexCss from '../index.css?url'
  * Dark mode is a single `.dark` class on <html>; the token values in index.css
  * flip under it. Persisted to localStorage, falls back to system preference.
  */
-const themeInitScript = `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`
+const themeInitScript = `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':true;document.documentElement.classList.toggle('dark',d);}catch(e){}})();`
 
 // staleTime avoids an extra Supabase round-trip every time a page remounts
 // (e.g. switching tabs in the sidebar) — data is refetched at most once per
