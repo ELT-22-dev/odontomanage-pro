@@ -47,7 +47,11 @@ class DemoAuth {
 
   constructor() {
     queueMicrotask(() => {
-      this.state = { user: loadSession(), isLoading: false, isPasswordRecovery: false }
+      // No login screen in demo mode — auto-create/restore a session so a
+      // portfolio visitor lands straight on the dashboard.
+      const user = loadSession() ?? { id: DEMO_USER_ID, email: 'demo@odontomanage.pro', displayName: 'Equipe Demo' }
+      saveSession(user)
+      this.state = { user, isLoading: false, isPasswordRecovery: false }
       this.emit()
     })
   }

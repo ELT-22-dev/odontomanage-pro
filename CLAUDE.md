@@ -57,20 +57,28 @@ in the Configuracoes export/import backup feature.
 
 ### Demo mode (`src/blink/demoClient.ts`, `VITE_DEMO_MODE=true`)
 
-An additive, opt-in alternative to the Supabase backend for zero-setup portfolio/demo deploys
-(e.g. a free Vercel deploy with no Supabase project at all) — **never used for a real clinic**.
-Setting `VITE_DEMO_MODE=true` makes `src/blink/client.ts` export `demoClient.ts` instead of
-`supabaseClient.ts`; both implement the identical `blink.auth.*` / `blink.db.table(...)` shape
-(same interface parity that made the original Blink->Supabase swap painless), so no route
-component branches on this. `demoClient.ts` stores everything in the browser's `localStorage`,
-seeded on first load from `demoData.ts` (fake patients/agenda/financeiro/prontuarios, with dates
-computed relative to "today" so the demo never looks stale). Auth in demo mode accepts any
-email/password (no real verification) and persists the session to `localStorage`.
-`src/lib/supabase.ts` is guarded to not throw on missing env vars when `VITE_DEMO_MODE=true`
-(falls back to a placeholder URL/key that's created but never called) — this is what lets a demo
-Vercel deploy skip Supabase env vars entirely. This does not contradict `ARQUITETURA.md`'s "don't
-swap Supabase for another backend" — that guidance is about the real per-clinic deployment path,
-which is untouched; this is a parallel, explicitly-flagged mode for a non-production use case.
+An additive alternative to the Supabase backend for zero-setup portfolio/demo deploys (e.g. a
+free Vercel deploy with no Supabase project at all) — **never used for a real clinic**.
+`src/blink/client.ts` computes `IS_DEMO_MODE` as `VITE_DEMO_MODE === 'true'` **OR** no
+`VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` configured at all, and exports `demoClient.ts`
+instead of `supabaseClient.ts` when true; both implement the identical `blink.auth.*` /
+`blink.db.table(...)` shape (same interface parity that made the original Blink->Supabase swap
+painless), so no route component branches on this. The "no config" half of that check is a
+safety net, not the primary trigger: a real clinic always has real Supabase env vars set (see
+IMPLANTACAO.md), so it never fires for a production deploy — it only exists so a Vercel deploy
+with a missing/misapplied `VITE_DEMO_MODE` degrades to a working demo instead of a hard crash
+(`src/lib/supabase.ts` used to throw on missing env vars unconditionally; now it only throws when
+exactly one of the two is set, since that's the real misconfiguration signal — both missing is
+treated as "no config given", not an error).
+
+`demoClient.ts` stores everything in the browser's `localStorage`, seeded on first load from
+`demoData.ts` (fake patients/agenda/financeiro/prontuarios, with dates computed relative to
+"today" so the demo never looks stale). There is **no login screen in demo mode** — `DemoAuth`
+auto-creates/restores a session on load so a portfolio visitor lands straight on the dashboard;
+`AppLayout`'s auth screen is only reachable if something explicitly calls `blink.auth.logout()`.
+This does not contradict `ARQUITETURA.md`'s "don't swap Supabase for another backend" — that
+guidance is about the real per-clinic deployment path, which is untouched; this is a parallel
+mode for a non-production use case.
 
 ### SQL migrations — must be run manually in the Supabase SQL Editor
 
