@@ -180,14 +180,9 @@ large added dependency surface; users are asked to export their spreadsheet to C
   `Configurações`, `nao` not `não`) — a repo-wide style from the original scaffold, kept for
   consistency. New user-facing strings should generally follow suit unless already inconsistent
   nearby.
-- `src/layouts/shared-app-layout.tsx`, `src/Shell.tsx`, `src/components/AppSidebarShell.tsx` are
-  unused template leftovers, not wired into any route — don't extend them; the real layout is
-  `src/components/AppLayout.tsx` + `src/components/AppSidebar.tsx`.
-- `src/assets/hero.png` shows as permanently "modified" in `git status`/`git diff` — a pre-existing
-  Git LFS quirk (the blob was committed as raw binary, not an LFS pointer, so the LFS clean filter
-  keeps re-flagging it). It's cosmetic; don't try to "fix" it as part of unrelated work, and don't
-  `git add` it by accident (`git add -A`/`git add .` will pick it up — stage files explicitly
-  instead).
+- The real layout is `src/components/AppLayout.tsx` + `src/components/AppSidebar.tsx` — there is
+  no other layout scaffold in the repo (an earlier `shared-app-layout.tsx`/`Shell.tsx`/
+  `AppSidebarShell.tsx` set of unused template leftovers was removed).
 - Generic dependencies with no imports anywhere in `src/` have been deliberately removed
   (`date-fns`, `framer-motion`, `@react-three/*`, `@dnd-kit/core`, `react-hook-form`, `zod`,
   `react-hot-toast`, `react-responsive`, `@hookform/resolvers`). Before adding a "might need it
