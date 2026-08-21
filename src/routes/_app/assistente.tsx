@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { blink } from '@/blink/client'
+import { blink, IS_DEMO_MODE } from '@/blink/client'
 import { askAssistant, type ChatMessage } from '@/lib/ai'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -89,6 +89,10 @@ function AssistentePage() {
   const send = async (question: string) => {
     const q = question.trim()
     if (!q || sending) return
+    if (IS_DEMO_MODE) {
+      toast.error('Assistente de IA nao esta disponivel no modo demonstracao (depende de uma Edge Function paga com chave de API propria).')
+      return
+    }
     if (!context) {
       toast.error('Aguarde os dados da clinica carregarem')
       return
@@ -150,6 +154,12 @@ function AssistentePage() {
                   Sou o assistente do OdontoManage Pro. Posso responder perguntas sobre os dados atuais
                   da clinica — pacientes, agenda e financeiro.
                 </p>
+                {IS_DEMO_MODE && (
+                  <p className="text-xs text-primary max-w-sm">
+                    Modo demonstracao — este recurso depende de uma chave de API paga e nao esta
+                    ativo aqui.
+                  </p>
+                )}
                 <div className="flex flex-wrap justify-center gap-2 max-w-md">
                   {SUGGESTIONS.map((s) => (
                     <button
