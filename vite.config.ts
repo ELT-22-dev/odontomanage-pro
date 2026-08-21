@@ -4,11 +4,8 @@ import viteReact from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import fs from 'node:fs';
-// Blink Visual Editor: stamps data-blnk-id on JSX + injects iframe-side picker
-// runtime. Self-contained (no external deps) so this template stays portable.
-import { blinkTaggerPlugin } from './blink-tagger.plugin.mjs';
 
-// Blink: guarantee global CSS survives agent rewrites of src/routes/__root.tsx.
+// Guarantee global CSS survives agent rewrites of src/routes/__root.tsx.
 // TanStack Start only emits a stylesheet for CSS imported by a ROUTE module, and
 // the agent frequently regenerates __root.tsx from scratch and drops the
 // `import '../index.css'` — orphaning Tailwind so the app renders unstyled. This
@@ -43,9 +40,6 @@ export default defineConfig({
     // itself (must NOT be a PostCSS plugin here — TanStack Start's prerender build
     // runs postcss-import first and can't resolve the v4 bare import → build fails).
     tailwindcss(),
-    // Build-time tagger OFF by default — its transform can stamp data-blnk-id into
-    // HTML inside string literals. Enable with BLINK_BUILD_TIME_TAGGER=on.
-    ...(process.env.BLINK_BUILD_TIME_TAGGER === 'on' ? [blinkTaggerPlugin()] : []),
     // TanStack Start — SSR + static prerendering so search engines AND AI crawlers
     // (GPTBot/ClaudeBot/PerplexityBot, which do NOT execute JS) get fully-rendered
     // HTML on the first request. `prerender` emits crawlable static HTML at build time.
