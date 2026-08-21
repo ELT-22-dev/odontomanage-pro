@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { blink, type LocalUser } from '@/blink/client'
+import { blink, IS_DEMO_MODE, type LocalUser } from '@/blink/client'
 import { Link, useLocation } from '@tanstack/react-router'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -100,6 +100,11 @@ export function AppSidebar({ user, onNavigate }: AppSidebarProps) {
               <span className="flex-1 font-semibold text-sm truncate text-sidebar-foreground">
                 {clinicName}
               </span>
+              {IS_DEMO_MODE && (
+                <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                  Demo
+                </span>
+              )}
             </>
           )}
           <Tooltip>

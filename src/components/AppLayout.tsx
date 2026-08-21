@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from 'react'
-import { blink } from '@/blink/client'
+import { blink, IS_DEMO_MODE } from '@/blink/client'
 import { useAuth } from '@/hooks/useAuth'
 import { AppSidebar } from '@/components/AppSidebar'
 import { Button } from '@/components/ui/button'
@@ -86,6 +86,11 @@ function AuthShell({ children }: { children: ReactNode }) {
         <p className="text-muted-foreground max-w-sm">
           Sistema completo de gestao para sua clinica odontologica.
         </p>
+        {IS_DEMO_MODE && (
+          <p className="text-xs text-primary max-w-sm">
+            Modo demonstracao — dados ficticios, use qualquer email e senha para entrar.
+          </p>
+        )}
       </div>
       {children}
     </div>

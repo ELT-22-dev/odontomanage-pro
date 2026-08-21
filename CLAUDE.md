@@ -50,8 +50,27 @@ not by an API layer — see `supabase-schema.sql`.
 `src/blink/client.ts` exports a `blink` object shaped like the original Blink SDK
 (`blink.auth.signIn/signUp/logout/...`, `blink.db.table(name).list/get/create/update/delete`) —
 this is a deliberate compatibility shim so route components didn't need to change when the
-backend was swapped. When adding a new table, extend `BACKUP_TABLES` in that file if it should be
-included in the Configuracoes export/import backup feature.
+backend was swapped. The real implementation lives in `src/blink/supabaseClient.ts`;
+`client.ts` itself is just a switcher (see "Demo mode" below). When adding a new table, extend
+`BACKUP_TABLES` in `supabaseClient.ts` (and `demoClient.ts`, see below) if it should be included
+in the Configuracoes export/import backup feature.
+
+### Demo mode (`src/blink/demoClient.ts`, `VITE_DEMO_MODE=true`)
+
+An additive, opt-in alternative to the Supabase backend for zero-setup portfolio/demo deploys
+(e.g. a free Vercel deploy with no Supabase project at all) — **never used for a real clinic**.
+Setting `VITE_DEMO_MODE=true` makes `src/blink/client.ts` export `demoClient.ts` instead of
+`supabaseClient.ts`; both implement the identical `blink.auth.*` / `blink.db.table(...)` shape
+(same interface parity that made the original Blink->Supabase swap painless), so no route
+component branches on this. `demoClient.ts` stores everything in the browser's `localStorage`,
+seeded on first load from `demoData.ts` (fake patients/agenda/financeiro/prontuarios, with dates
+computed relative to "today" so the demo never looks stale). Auth in demo mode accepts any
+email/password (no real verification) and persists the session to `localStorage`.
+`src/lib/supabase.ts` is guarded to not throw on missing env vars when `VITE_DEMO_MODE=true`
+(falls back to a placeholder URL/key that's created but never called) — this is what lets a demo
+Vercel deploy skip Supabase env vars entirely. This does not contradict `ARQUITETURA.md`'s "don't
+swap Supabase for another backend" — that guidance is about the real per-clinic deployment path,
+which is untouched; this is a parallel, explicitly-flagged mode for a non-production use case.
 
 ### SQL migrations — must be run manually in the Supabase SQL Editor
 
@@ -165,8 +184,9 @@ large added dependency surface; users are asked to export their spreadsheet to C
   (`date-fns`, `framer-motion`, `@react-three/*`, `@dnd-kit/core`, `react-hook-form`, `zod`,
   `react-hot-toast`, `react-responsive`, `@hookform/resolvers`). Before adding a "might need it
   later" dependency, check it's actually imported before it lands in `package.json`.
-- `npm install` needs `--legacy-peer-deps` in this repo (`@tailwindcss/vite` wants Vite 5-7, the
-  project pins Vite 8) — this is expected, not a sign something is broken.
+- `@tailwindcss/vite` wants Vite 5-7, the project pins Vite 8 — a real peer dependency conflict
+  (`npm install` would fail with ERESOLVE otherwise). The root `.npmrc` (`legacy-peer-deps=true`)
+  handles this automatically now, so plain `npm install` works, including on Vercel.
 
 ## History
 
