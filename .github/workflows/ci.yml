@@ -26,17 +26,11 @@ jobs:
 
       - name: Lint
         run: npx eslint . --ext ts,tsx --report-unused-disable-directives
-        # Known pre-existing violations not yet triaged — see docs/ARQUITETURA.md
-        # "Dívidas técnicas" for the list. Flip this to blocking once they're fixed.
+        # Known pre-existing violations not yet triaged. Flip this to blocking
+        # once they're fixed.
         continue-on-error: true
 
-      # Real production build (prerenders every route). Uses placeholder Supabase
-      # credentials — this only proves the build doesn't crash, it never talks to
-      # a real project. It succeeds because every browser-only read (auth state,
-      # localStorage) is wrapped in <BlinkClientBoundary>/ssr:false, so nothing at
-      # build time actually calls Supabase.
+      # Real production build (prerenders every route). No env vars needed —
+      # this app has no backend, everything is static + localStorage.
       - name: Build
         run: npm run build
-        env:
-          VITE_SUPABASE_URL: https://placeholder.supabase.co
-          VITE_SUPABASE_ANON_KEY: placeholder-anon-key

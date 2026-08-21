@@ -1,8 +1,8 @@
 /**
  * Pure calculation logic extracted from src/routes/_app/financeiro.tsx so it can
- * be unit-tested without rendering the page (which needs react-query + Supabase
- * mocked). Behavior is unchanged — the route still wraps these in useMemo, this
- * module just holds the computation itself.
+ * be unit-tested without rendering the page (which needs react-query mocked).
+ * Behavior is unchanged — the route still wraps these in useMemo, this module
+ * just holds the computation itself.
  */
 
 export interface Transaction {

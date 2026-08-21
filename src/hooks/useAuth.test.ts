@@ -4,8 +4,7 @@ import { useAuth } from './useAuth'
 import { blink } from '@/blink/client'
 
 // Replaces the whole module — useAuth only touches blink.auth, and mocking it
-// here means the test never needs real Supabase env vars (src/lib/supabase.ts
-// throws at import time without them).
+// here isolates the test from demoClient.ts's localStorage-backed auth state.
 vi.mock('@/blink/client', () => ({
   blink: { auth: { onAuthStateChanged: vi.fn() } },
 }))

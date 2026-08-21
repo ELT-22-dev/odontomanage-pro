@@ -19,10 +19,10 @@ import indexCss from '../index.css?url'
  */
 const themeInitScript = `(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':true;document.documentElement.classList.toggle('dark',d);}catch(e){}})();`
 
-// staleTime avoids an extra Supabase round-trip every time a page remounts
-// (e.g. switching tabs in the sidebar) — data is refetched at most once per
-// window instead of on every single navigation. Window-focus refetch stays on
-// so a second device's changes still show up when this tab regains focus.
+// staleTime avoids re-reading localStorage on every page remount (e.g.
+// switching tabs in the sidebar) — data is refetched at most once per window
+// instead of on every single navigation. Window-focus refetch stays on so
+// changes made in another tab still show up when this tab regains focus.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

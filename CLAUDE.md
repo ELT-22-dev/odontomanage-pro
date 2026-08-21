@@ -5,28 +5,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 **OdontoManage Pro** — a dental clinic management system (patients, agenda, consultations,
-financial records, medical records) for a **single clinic** (not a multi-tenant SaaS — each
-clinic gets its own separate Supabase project + Google Cloud credentials + hosting).
+financial records, medical records) built as a **portfolio/demo piece**. It has no backend and no
+real database: every "save" writes to the visiting browser's `localStorage`, seeded with fake data
+on first load. Nothing is shared between visitors, nothing is sent to any server.
 
-Originally scaffolded by Blink (blink.new) with `@blinkdotnew/sdk` as the backend. That backend
-was fully removed — see "History" below. Everything now runs on Supabase.
+It did not start this way — see "History" below for how it got here. If you're about to add a
+feature that needs a real server, a database, or a secret API key, stop: that doesn't fit this
+project's current shape (see "What NOT to do" below) unless the user explicitly asks to bring
+backend infrastructure back.
 
-Two companion docs live in `docs/`: `IMPLANTACAO.md` (deploying a fresh instance for a new clinic)
-and `ARQUITETURA.md` (architecture review — what's solid, what's technical debt, prioritized
-roadmap). Read `ARQUITETURA.md` before proposing a structural change (new dependency, new layer,
-big refactor) — it records the reasoning behind past calls so it doesn't get re-litigated.
+`docs/IMPLANTACAO.md` covers deploying this build (Vercel/Hostinger) and the one optional real
+integration (Google Calendar).
 
 ## Commands
 
 ```bash
 npm run dev              # dev server on :3000 (fixed port, strictPort)
-npm run build             # vite build (client+SSR) then flattens to dist/ (see Deployment)
+npm run build             # vite build (client+SSR) then flattens to dist/ (see docs/IMPLANTACAO.md)
 npm run preview           # preview the production build
-npm test                  # vitest run — unit tests (src/**/*.test.ts), see ARQUITETURA.md 3.1
+npm test                  # vitest run — unit tests (src/**/*.test.ts)
 npm run test:watch        # vitest in watch mode
 npx tsc --noEmit          # type-check (fast, no dev server needed) — run this after any change
 npm run lint:types        # same as above
-npm run lint:js           # eslint (eslint.config.js — see ARQUITETURA.md 3.2 for its history)
+npm run lint:js           # eslint (eslint.config.js)
 npm run lint:css          # stylelint --fix
 npm run lint              # runs all three via `bun run` — bun is NOT installed in this env;
                            # run the three lint:* scripts individually with npm/npx instead
@@ -35,64 +36,34 @@ npm run lint              # runs all three via `bun run` — bun is NOT installe
 Unit tests use Vitest + Testing Library (`vitest.config.ts` — deliberately separate from
 `vite.config.ts`, which loads the TanStack Start SSR/prerender/codegen plugin that unit tests don't
 need). Test files sit next to what they test (`src/lib/financeStats.test.ts`, etc.). There is no
-Playwright/e2e suite yet — see `docs/ARQUITETURA.md` for what's covered and what isn't.
+Playwright/e2e suite.
+
+No environment variables are required to run this project. `VITE_GOOGLE_CLIENT_ID` is the one
+optional exception (see "Google Calendar sync" below).
 
 ## Architecture
 
-### No custom backend — everything talks to Supabase directly from the browser
+### No backend — everything lives in the browser's localStorage
 
-There is no Node/Express/serverless API layer. React components call `blink.db.table(...)` and
-`blink.auth.*` (see `src/blink/client.ts`), which call `@supabase/supabase-js` directly using the
-public anon key (`VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in `.env`, gitignored). Security
-is enforced entirely by **Postgres Row Level Security** (`auth.uid() = user_id` on every table),
-not by an API layer — see `supabase-schema.sql`.
+There is no server, no database, no API layer of any kind. React components call
+`blink.db.table(...)` and `blink.auth.*` (see `src/blink/client.ts`), which is a thin re-export of
+`src/blink/demoClient.ts` — the actual implementation. `demoClient.ts` reads/writes a single JSON
+blob in `localStorage` (`odonto_demo_db_v1`), seeded on first load from `src/blink/demoData.ts`
+(fake patients/agenda/financeiro/prontuarios, with dates computed relative to "today" so the demo
+never looks stale). `src/blink/sanitize.ts` holds a small shared helper (empty-string form fields
+become `null`).
 
-`src/blink/client.ts` exports a `blink` object shaped like the original Blink SDK
-(`blink.auth.signIn/signUp/logout/...`, `blink.db.table(name).list/get/create/update/delete`) —
-this is a deliberate compatibility shim so route components didn't need to change when the
-backend was swapped. The real implementation lives in `src/blink/supabaseClient.ts`;
-`client.ts` itself is just a switcher (see "Demo mode" below). When adding a new table, extend
-`BACKUP_TABLES` in `supabaseClient.ts` (and `demoClient.ts`, see below) if it should be included
-in the Configuracoes export/import backup feature.
+`blink.auth` (`DemoAuth` in `demoClient.ts`) auto-creates/restores a session on load — **there is
+no real login**, a portfolio visitor lands straight on the dashboard. `AppLayout`'s auth screen
+(`src/components/AppLayout.tsx`) still exists and is fully wired (accepts any email/password,
+persists to `localStorage`) but is normally unreachable; it only shows if something explicitly
+calls `blink.auth.logout()` (the sidebar's "Sair" button).
 
-### Demo mode (`src/blink/demoClient.ts`, `VITE_DEMO_MODE=true`)
-
-An additive alternative to the Supabase backend for zero-setup portfolio/demo deploys (e.g. a
-free Vercel deploy with no Supabase project at all) — **never used for a real clinic**.
-`src/blink/client.ts` computes `IS_DEMO_MODE` as `VITE_DEMO_MODE === 'true'` **OR** no
-`VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` configured at all, and exports `demoClient.ts`
-instead of `supabaseClient.ts` when true; both implement the identical `blink.auth.*` /
-`blink.db.table(...)` shape (same interface parity that made the original Blink->Supabase swap
-painless), so no route component branches on this. The "no config" half of that check is a
-safety net, not the primary trigger: a real clinic always has real Supabase env vars set (see
-IMPLANTACAO.md), so it never fires for a production deploy — it only exists so a Vercel deploy
-with a missing/misapplied `VITE_DEMO_MODE` degrades to a working demo instead of a hard crash
-(`src/lib/supabase.ts` used to throw on missing env vars unconditionally; now it only throws when
-exactly one of the two is set, since that's the real misconfiguration signal — both missing is
-treated as "no config given", not an error).
-
-`demoClient.ts` stores everything in the browser's `localStorage`, seeded on first load from
-`demoData.ts` (fake patients/agenda/financeiro/prontuarios, with dates computed relative to
-"today" so the demo never looks stale). There is **no login screen in demo mode** — `DemoAuth`
-auto-creates/restores a session on load so a portfolio visitor lands straight on the dashboard;
-`AppLayout`'s auth screen is only reachable if something explicitly calls `blink.auth.logout()`.
-This does not contradict `ARQUITETURA.md`'s "don't swap Supabase for another backend" — that
-guidance is about the real per-clinic deployment path, which is untouched; this is a parallel
-mode for a non-production use case.
-
-### SQL migrations — must be run manually in the Supabase SQL Editor
-
-There's no migration tool wired up. Every `supabase-*.sql` file in the repo root must be pasted
-into the target Supabase project's SQL Editor by hand, in roughly this order, before the
-corresponding feature works:
-- `supabase-schema.sql` — core tables (patients, appointments, transactions, medical_records) + RLS
-- `supabase-indices.sql` — perf indices (RLS filters every query by `user_id`, so this matters)
-- `supabase-migration-google-calendar.sql` — adds `appointments.google_event_id`
-- `supabase-migration-clinic-branding.sql` — adds the `clinic_settings` table
-
-If you add a feature needing a schema change, add a new `supabase-migration-*.sql` file (don't
-edit `supabase-schema.sql` after the fact) and tell the user to run it — there is no way to run
-DDL from the app itself (anon key can't do schema changes).
+The `blink.auth.*` / `blink.db.table(name).list/get/create/update/delete` shape is a
+**compatibility shim** left over from when this ran on a real Supabase backend (see "History") —
+route components were written against that shape and still are, even though nothing behind it
+talks to a network anymore. When adding a new table, extend `BACKUP_TABLES` in `demoClient.ts` if
+it should be included in the Configuracoes export/import backup feature.
 
 ### Routing gotcha: file-based layout routes need `<Outlet/>`
 
@@ -107,8 +78,8 @@ Keep this pattern in mind before adding new nested routes under an existing page
 
 `AppLayout` branches on `useAuth()` state in this order: `isPasswordRecovery` (show
 `NewPasswordScreen`) → `isLoading` (skeleton) → `!isAuthenticated` (show `AuthScreen`, which
-itself has signin/signup/forgot-password modes) → authenticated app shell. `useAuth`
-(`src/hooks/useAuth.ts`) wraps `blink.auth.onAuthStateChanged`.
+itself has signin/signup/forgot-password modes, all fake/local in this build) → authenticated app
+shell. `useAuth` (`src/hooks/useAuth.ts`) wraps `blink.auth.onAuthStateChanged`.
 
 The whole authenticated app (`src/routes/_app.tsx` and everything under `_app/`) is wrapped in
 `<BlinkClientBoundary>` (a `ClientOnly` from TanStack Router) — these routes never actually
@@ -117,14 +88,16 @@ render on the server, only a static skeleton fallback. This is why `localStorage
 
 ### Google Calendar sync (`src/lib/googleCalendar.ts`, `src/hooks/useGoogleCalendar.ts`)
 
-Client-only OAuth via Google Identity Services (GIS) — no backend, no client secret, no refresh
-token. `connect()` gets a short-lived (~1h) access token and stores it in `localStorage` (must be
-`localStorage` not `sessionStorage` — the connect button and the appointment-creation flow are on
-different pages/route mounts, and `sessionStorage` doesn't share across tabs, which caused a real
-bug once). Appointment create/cancel/delete in `agenda.tsx` and `consultas.tsx` best-effort push
-to Google when connected; failures there must never block the underlying Supabase write. Requires
+The one real external integration left in this build. Client-only OAuth via Google Identity
+Services (GIS) — no backend, no client secret, no refresh token. `connect()` gets a short-lived
+(~1h) access token and stores it in `localStorage` (must be `localStorage` not `sessionStorage` —
+the connect button and the appointment-creation flow are on different pages/route mounts, and
+`sessionStorage` doesn't share across tabs, which caused a real bug once). Appointment
+create/cancel/delete in `agenda.tsx` and `consultas.tsx` best-effort push to Google when
+connected; failures there must never block the underlying `blink.db.table(...)` write. Requires
 `VITE_GOOGLE_CLIENT_ID` in `.env` and the Google Cloud OAuth client's "Authorized JavaScript
-origins" to match wherever the app is served from (`localhost:3000` in dev).
+origins" to match wherever the app is served from (`localhost:3000` in dev). Without it configured,
+the "Conectar Google Calendar" button just does nothing — the rest of the app is unaffected.
 
 ### WhatsApp reminders (`src/lib/whatsapp.ts`)
 
@@ -134,45 +107,18 @@ backend. Message text intentionally avoids most accented characters (repo conven
 
 ### Clinic branding (`src/hooks/useClinicBranding.ts`, `clinic_settings` table)
 
-Clinic name/logo are **not** stored in Supabase Auth user metadata — metadata is embedded in the
-JWT on every request, and an image there would bloat every authenticated call. They live in their
-own `clinic_settings` table instead, fetched with a plain query. That table's SELECT policy is
-intentionally public (`using (true)`) so the logo/name can render on the pre-login screen too —
-this is safe only because each deployment is single-tenant (one clinic's Supabase project), so a
-public-read row is that clinic's own public branding, not cross-tenant leakage.
-
-### AI assistant & clinical note summarization (`supabase/functions/ai`, `src/lib/ai.ts`)
-
-The app has no backend, so the Anthropic API key (a secret) can't ship in the browser bundle —
-it lives only as a Supabase Edge Function secret. `supabase/functions/ai/index.ts` is a thin
-proxy: it verifies the caller's Supabase session (`supabase.auth.getUser()` against the
-`Authorization` header), then calls the Claude API (`claude-opus-5`) and returns the result. It
-never touches Postgres directly — the browser already fetched whatever clinic data it needs
-(through the normal RLS-protected `blink.db.table(...)` calls) and sends it in the request body;
-the function's only job is to hold the API key and relay the call. This split was chosen over a
-Vercel serverless function specifically because the app can be hosted on Vercel **or** Hostinger
-(plain static files — see `docs/IMPLANTACAO.md`), and Supabase is the one dependency present in
-both deployment paths.
-
-`src/lib/ai.ts` calls it via `supabase.functions.invoke('ai', ...)` (which attaches the session
-token automatically) and exposes two actions: `chat` (the "Assistente IA" page,
-`src/routes/_app/assistente.tsx` — answers questions using a JSON snapshot of patients/agenda/
-financeiro built client-side) and `summarize` (the "Resumir com IA" button in the prontuarios
-create/edit dialog — turns raw dentist notes into a structured draft). **Both are drafts by
-design**: the summarize action never writes to the database itself, it only fills the same
-editable form fields the user already reviews before clicking Salvar — deliberately, given this
-touches patient medical records. Deploying/updating the function requires the Supabase CLI
-(`supabase functions deploy ai`) and a secret (`supabase secrets set ANTHROPIC_API_KEY=sk-ant-...`)
-— there is no way to do either from the app itself.
+Clinic name/logo are fetched via `blink.db.table('clinic_settings').list()` — a plain read from
+the same localStorage store as everything else, seeded with a default name/no logo in
+`demoData.ts`. Editable from Configuracoes.
 
 ### CSV patient import (`src/lib/patientImport.ts`)
 
 Auto-detects common Portuguese/English column headers (accent- and case-insensitive) via
 `PATIENT_FIELDS`/`FIELD_ALIASES`, shows a mapping + preview before writing anything, then bulk
-inserts via `blink.db.table(...).createMany()` (added specifically to avoid one Supabase request
-per CSV row). Deliberately does **not** support `.xlsx` — both browser-side Excel-parsing
-libraries available on npm (`xlsx`/SheetJS, `exceljs`) carry known unpatched vulnerabilities or a
-large added dependency surface; users are asked to export their spreadsheet to CSV first instead.
+inserts via `blink.db.table(...).createMany()`. Deliberately does **not** support `.xlsx` — both
+browser-side Excel-parsing libraries available on npm (`xlsx`/SheetJS, `exceljs`) carry known
+unpatched vulnerabilities or a large added dependency surface; users are asked to export their
+spreadsheet to CSV first instead.
 
 ## Conventions
 
@@ -181,20 +127,39 @@ large added dependency surface; users are asked to export their spreadsheet to C
   consistency. New user-facing strings should generally follow suit unless already inconsistent
   nearby.
 - The real layout is `src/components/AppLayout.tsx` + `src/components/AppSidebar.tsx` — there is
-  no other layout scaffold in the repo (an earlier `shared-app-layout.tsx`/`Shell.tsx`/
-  `AppSidebarShell.tsx` set of unused template leftovers was removed).
+  no other layout scaffold in the repo.
 - Generic dependencies with no imports anywhere in `src/` have been deliberately removed
   (`date-fns`, `framer-motion`, `@react-three/*`, `@dnd-kit/core`, `react-hook-form`, `zod`,
-  `react-hot-toast`, `react-responsive`, `@hookform/resolvers`). Before adding a "might need it
-  later" dependency, check it's actually imported before it lands in `package.json`.
+  `react-hot-toast`, `react-responsive`, `@hookform/resolvers`, `@supabase/supabase-js`). Before
+  adding a "might need it later" dependency, check it's actually imported before it lands in
+  `package.json`.
 - `@tailwindcss/vite` wants Vite 5-7, the project pins Vite 8 — a real peer dependency conflict
   (`npm install` would fail with ERESOLVE otherwise). The root `.npmrc` (`legacy-peer-deps=true`)
   handles this automatically now, so plain `npm install` works, including on Vercel.
 
+## What NOT to do
+
+This is a static, backend-free portfolio build on purpose — don't undo that as a side effect of
+an unrelated feature request:
+
+- **Don't add a real backend, database, or server-side API** (Supabase, Express, serverless
+  functions, etc.) unless the user explicitly asks to turn this back into a real product. If a
+  feature seems to need one (e.g. real auth, a paid API key that can't ship to the browser), say
+  so and ask, rather than quietly wiring one up.
+- **Don't reintroduce an AI assistant / any feature needing a server-held secret.** One used to
+  exist here (Claude API via a Supabase Edge Function) and was removed specifically because there
+  is no backend left to hold the key.
+- **Don't assume multi-user/multi-device persistence.** Data lives in one browser's localStorage;
+  it doesn't sync across devices or between two people looking at the demo at once. That's
+  expected, not a bug to fix.
+
 ## History
 
-This was originally a Blink-generated template using `@blinkdotnew/sdk` for both auth and data
-storage. That backend was fully replaced with Supabase because the Blink-hosted login flow was
-unreliable (slow/hanging) and provided no real multi-device persistence. If you see any reference
-to `@blinkdotnew/sdk` or `blink.new` outside of historical context, that's leftover/dead — the
-package is uninstalled.
+Originally scaffolded by Blink (blink.new) with `@blinkdotnew/sdk` as the backend, then migrated
+to a real Supabase backend (Postgres + Auth, Row Level Security) for actual per-clinic production
+use — `docs/IMPLANTACAO.md` and this file used to describe that setup (Supabase SQL migrations,
+env vars, a Supabase Edge Function proxying the Claude API for an "Assistente IA" feature). That
+entire backend was later removed to turn this into a pure portfolio/demo piece: no accounts, no
+setup, no cost, works instantly for anyone who opens the deployed link. If you see a reference to
+`@blinkdotnew/sdk`, `blink.new`, Supabase, or an AI assistant feature outside of this historical
+context, that's leftover/dead — none of it is installed or wired up anymore.

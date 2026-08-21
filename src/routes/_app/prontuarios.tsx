@@ -5,9 +5,8 @@ import { useState, useMemo, useEffect } from 'react'
 import {
   ClipboardList, Search, Plus, FileText, Stethoscope,
   Pill, Trash2, ChevronRight, Clock, Printer, Pencil,
-  CalendarDays, BarChart3, Users, Sparkles, Loader2
+  CalendarDays, BarChart3, Users,
 } from 'lucide-react'
-import { summarizeRecord } from '@/lib/ai'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -49,7 +48,6 @@ function ProntuariosPage() {
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null)
   const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null)
   const [form, setForm] = useState({ ...blankForm })
-  const [summarizing, setSummarizing] = useState(false)
 
   const { data: patients = [] } = useQuery<Patient[]>({
     queryKey: ['patients'],
@@ -152,33 +150,6 @@ function ProntuariosPage() {
       setForm({ ...blankForm })
     } catch (err: any) {
       toast.error(err?.message || 'Erro')
-    }
-  }
-
-  const handleSummarize = async () => {
-    if (!form.content.trim()) {
-      toast.error('Escreva algumas anotacoes na Evolucao/Anamnese primeiro')
-      return
-    }
-    setSummarizing(true)
-    try {
-      const summary = await summarizeRecord({
-        rawNotes: form.content,
-        patientName: form.patient_name,
-        recordType: form.record_type,
-      })
-      setForm((f) => ({
-        ...f,
-        content: summary.content || f.content,
-        diagnosis: summary.diagnosis || f.diagnosis,
-        treatment_plan: summary.treatment_plan || f.treatment_plan,
-        prescriptions: summary.prescriptions || f.prescriptions,
-      }))
-      toast.success('Rascunho gerado pela IA — revise os campos antes de salvar')
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro ao gerar resumo com IA')
-    } finally {
-      setSummarizing(false)
     }
   }
 
@@ -617,21 +588,7 @@ function ProntuariosPage() {
 
             {/* Content fields */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label>Evolucao / Anamnese</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-primary"
-                  onClick={handleSummarize}
-                  disabled={summarizing || !form.content.trim()}
-                  title="Organiza o texto acima e sugere diagnostico, plano de tratamento e prescricoes. Revise antes de salvar."
-                >
-                  {summarizing ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
-                  {summarizing ? 'Gerando...' : 'Resumir com IA'}
-                </Button>
-              </div>
+              <Label>Evolucao / Anamnese</Label>
               <Textarea
                 value={form.content}
                 onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}

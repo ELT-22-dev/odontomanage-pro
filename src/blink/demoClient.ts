@@ -1,9 +1,8 @@
 /**
- * Data + auth layer for demo mode (VITE_DEMO_MODE=true) — same call surface as
- * supabaseClient.ts (`blink.auth.*`, `blink.db.table(name).list/get/create/
- * update/delete`) but backed by localStorage instead of a real Supabase project.
- * Lets the app be deployed (e.g. a portfolio demo on Vercel) with zero backend
- * setup. Never used for a real clinic — see CLAUDE.md "Demo mode".
+ * Data + auth layer for this portfolio build — no backend, everything lives in
+ * the browser's localStorage. `blink.auth.*` / `blink.db.table(name).list/get/
+ * create/update/delete` is a compatibility shim shape kept from an earlier
+ * Supabase-backed version of this project (see CLAUDE.md "History").
  */
 import { sanitize } from './sanitize'
 import { buildDemoSeed, DEMO_USER_ID } from './demoData'
