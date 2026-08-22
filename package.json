@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/finalize-static-build.mjs",
+    "start": "serve -s dist -l 3000",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -53,6 +54,7 @@
     "react-dom": "^19.2.8",
     "react-is": "^19.2.8",
     "recharts": "^3.9.2",
+    "serve": "^14.2.6",
     "sonner": "^2.0.7",
     "stylelint": "^17.14.0",
     "stylelint-config-standard": "^40.0.0",
