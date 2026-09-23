@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { computeSummaryCounts, computeTotals, getPeriodRange, type Transaction } from './financeStats'
+import {
+  computeTotals, effectiveDate, expensesByCategory, filterByPeriod, getPeriodRange, monthlySeries,
+} from './financeStats'
+import type { Transaction } from './types'
 
-function makeTransaction(overrides: Partial<Transaction>): Transaction {
+function tx(overrides: Partial<Transaction>): Transaction {
   return {
     id: 'tx1',
     patient_id: null,
@@ -9,11 +12,11 @@ function makeTransaction(overrides: Partial<Transaction>): Transaction {
     type: 'income',
     category: 'Consulta',
     description: null,
-    amount: '100',
-    payment_method: 'dinheiro',
+    amount: 100,
+    payment_method: 'pix',
     status: 'paid',
-    installments: '1',
-    current_installment: '1',
+    installments: 1,
+    current_installment: 1,
     due_date: null,
     paid_date: null,
     created_at: '2026-07-15T10:00:00.000Z',
@@ -22,95 +25,84 @@ function makeTransaction(overrides: Partial<Transaction>): Transaction {
 }
 
 describe('getPeriodRange', () => {
-  // Fixed reference date so the tests don't depend on when they're run.
-  const now = new Date(2026, 6, 15) // 15 Jul 2026 (month is 0-indexed)
+  const today = '2026-07-15'
 
-  it('this-month starts on day 1 of the current month and ends now', () => {
-    const range = getPeriodRange('this-month', now)
-    expect(range).toEqual({ start: new Date(2026, 6, 1), end: now })
+  it('this-month cobre o mes inteiro', () => {
+    expect(getPeriodRange('this-month', today)).toEqual({ start: '2026-07-01', end: '2026-07-31' })
   })
 
-  it('last-month covers the full previous month, not a partial range', () => {
-    const range = getPeriodRange('last-month', now)
-    expect(range).toEqual({ start: new Date(2026, 5, 1), end: new Date(2026, 5, 30) })
+  it('last-month em janeiro volta para dezembro do ano anterior', () => {
+    expect(getPeriodRange('last-month', '2026-01-10')).toEqual({ start: '2025-12-01', end: '2025-12-31' })
   })
 
-  it('last-month handles a January "now" by rolling back into December of the prior year', () => {
-    const january = new Date(2026, 0, 10)
-    const range = getPeriodRange('last-month', january)
-    expect(range).toEqual({ start: new Date(2025, 11, 1), end: new Date(2025, 11, 31) })
+  it('last-3-months inclui o mes atual e os 2 anteriores', () => {
+    expect(getPeriodRange('last-3-months', today)).toEqual({ start: '2026-05-01', end: '2026-07-31' })
   })
 
-  it('last-3-months starts 3 calendar months back, not 90 days back', () => {
-    const range = getPeriodRange('last-3-months', now)
-    expect(range).toEqual({ start: new Date(2026, 3, 1), end: now })
+  it('all = sem filtro', () => {
+    expect(getPeriodRange('all', today)).toBeNull()
+  })
+})
+
+describe('effectiveDate / filterByPeriod', () => {
+  it('prioriza data de pagamento, depois vencimento, depois cadastro', () => {
+    expect(effectiveDate(tx({ paid_date: '2026-07-02', due_date: '2026-08-01' }))).toBe('2026-07-02')
+    expect(effectiveDate(tx({ due_date: '2026-08-01' }))).toBe('2026-08-01')
+    expect(effectiveDate(tx({}))).toBe('2026-07-15')
   })
 
-  it('this-year starts on Jan 1 of the current year', () => {
-    const range = getPeriodRange('this-year', now)
-    expect(range).toEqual({ start: new Date(2026, 0, 1), end: now })
-  })
-
-  it('all returns null (no filtering)', () => {
-    expect(getPeriodRange('all', now)).toBeNull()
+  it('mensalidade cadastrada hoje com vencimento no mes que vem NAO entra neste mes', () => {
+    const list = [tx({ status: 'pending', due_date: '2026-08-10' })]
+    expect(filterByPeriod(list, 'this-month', '2026-07-15')).toHaveLength(0)
   })
 })
 
 describe('computeTotals', () => {
-  it('counts paid income, but keeps pending income separate from the income total', () => {
-    const totals = computeTotals([
-      makeTransaction({ type: 'income', status: 'paid', amount: '300' }),
-      makeTransaction({ type: 'income', status: 'pending', amount: '150' }),
-    ])
-    expect(totals.income).toBe(300)
-    expect(totals.pending).toBe(150)
+  it('separa recebido de a receber', () => {
+    const t = computeTotals([tx({ amount: 300 }), tx({ status: 'pending', amount: 150 })])
+    expect(t.income).toBe(300)
+    expect(t.pending).toBe(150)
   })
 
-  it('does not count a cancelled income transaction as income or as pending', () => {
-    const totals = computeTotals([
-      makeTransaction({ type: 'income', status: 'cancelled', amount: '500' }),
-    ])
-    expect(totals.income).toBe(0)
-    expect(totals.pending).toBe(0)
+  it('canceladas nao contam em nada (inclusive despesas — bug da versao antiga)', () => {
+    const t = computeTotals([tx({ status: 'cancelled', amount: 500 }), tx({ type: 'expense', status: 'cancelled', amount: 80 })])
+    expect(t).toEqual({ income: 0, pending: 0, expense: 0, payable: 0, balance: 0 })
   })
 
-  it('sums every expense regardless of status', () => {
-    const totals = computeTotals([
-      makeTransaction({ type: 'expense', status: 'paid', amount: '80' }),
-      makeTransaction({ type: 'expense', status: 'pending', amount: '20' }),
+  it('despesa pendente vai para "a pagar", nao desconta do saldo', () => {
+    const t = computeTotals([
+      tx({ amount: 1000 }),
+      tx({ type: 'expense', amount: 400 }),
+      tx({ type: 'expense', status: 'pending', amount: 50 }),
     ])
-    expect(totals.expense).toBe(100)
-  })
-
-  it('balance is paid income minus total expense (pending income is not counted)', () => {
-    const totals = computeTotals([
-      makeTransaction({ type: 'income', status: 'paid', amount: '1000' }),
-      makeTransaction({ type: 'income', status: 'pending', amount: '9999' }),
-      makeTransaction({ type: 'expense', status: 'paid', amount: '400' }),
-    ])
-    expect(totals.balance).toBe(600)
-  })
-
-  it('treats a non-numeric amount as zero instead of NaN poisoning the total', () => {
-    const totals = computeTotals([
-      makeTransaction({ type: 'income', status: 'paid', amount: 'nao-e-numero' }),
-    ])
-    expect(totals.income).toBe(0)
-    expect(Number.isNaN(totals.balance)).toBe(false)
-  })
-
-  it('returns all zeros for an empty list', () => {
-    expect(computeTotals([])).toEqual({ income: 0, expense: 0, pending: 0, balance: 0 })
+    expect(t.balance).toBe(600)
+    expect(t.payable).toBe(50)
   })
 })
 
-describe('computeSummaryCounts', () => {
-  it('splits transactions into income/expense counts', () => {
-    const counts = computeSummaryCounts([
-      makeTransaction({ type: 'income' }),
-      makeTransaction({ type: 'income' }),
-      makeTransaction({ type: 'expense' }),
+describe('monthlySeries', () => {
+  it('agrupa por ano-mes: setembro do ano passado nao soma com setembro deste ano', () => {
+    const series = monthlySeries(
+      [tx({ paid_date: '2026-09-05', amount: 100 }), tx({ paid_date: '2025-09-05', amount: 999 })],
+      '2026-09-23',
+    )
+    expect(series).toHaveLength(6)
+    expect(series[5]).toMatchObject({ key: '2026-09', receitas: 100 })
+    expect(series[0].key).toBe('2026-04')
+  })
+})
+
+describe('expensesByCategory', () => {
+  it('soma por categoria e ordena do maior para o menor', () => {
+    const data = expensesByCategory([
+      tx({ type: 'expense', category: 'Aluguel', amount: 3000 }),
+      tx({ type: 'expense', category: 'Material', amount: 200 }),
+      tx({ type: 'expense', category: 'Material', amount: 300 }),
+      tx({ type: 'income', category: 'Consulta', amount: 999 }),
     ])
-    expect(counts).toEqual({ incomeCount: 2, expenseCount: 1, total: 3 })
+    expect(data).toEqual([
+      { name: 'Aluguel', value: 3000 },
+      { name: 'Material', value: 500 },
+    ])
   })
 })

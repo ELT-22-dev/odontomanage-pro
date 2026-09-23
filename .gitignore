@@ -33,3 +33,13 @@ supabase/.temp/
 *.sln
 *.sw?
 .vercel
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.env*.local
+.tanstack/
+.claude/settings.local.json
+test-results/

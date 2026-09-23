@@ -4,162 +4,86 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**OdontoManage Pro** — a dental clinic management system (patients, agenda, consultations,
-financial records, medical records) built as a **portfolio/demo piece**. It has no backend and no
-real database: every "save" writes to the visiting browser's `localStorage`, seeded with fake data
-on first load. Nothing is shared between visitors, nothing is sent to any server.
+**OdontoManage Pro** — a production dental clinic management system (patients, agenda,
+consultations, financial records, medical records, staff users, audit trail) delivered to a real
+clinic. Real backend and real database: **Next.js 16 App Router** (UI + API routes in one
+project) + **PostgreSQL** (Neon in production), deployed on **Vercel**. Single-tenant: one deploy
++ one database per clinic; every user of that clinic sees the same data, access is by role
+(`admin` | `staff`).
 
-It did not start this way — see "History" below for how it got here. If you're about to add a
-feature that needs a real server, a database, or a secret API key, stop: that doesn't fit this
-project's current shape (see "What NOT to do" below) unless the user explicitly asks to bring
-backend infrastructure back.
-
-`docs/IMPLANTACAO.md` covers deploying this build (Vercel/Hostinger) and the one optional real
-integration (Google Calendar).
+Full human documentation: `docs/INFRAESTRUTURA.md` (architecture, DB, API reference, security,
+deploy, backup, runbook) and `docs/MANUAL-DO-USUARIO.md` (end users). Keep them in sync when you
+change behavior they describe.
 
 ## Commands
 
 ```bash
-npm run dev              # dev server on :3000 (fixed port, strictPort)
-npm run build             # vite build (client+SSR) then flattens to dist/ (see docs/IMPLANTACAO.md)
-npm run preview           # preview the production build
-npm test                  # vitest run — unit tests (src/**/*.test.ts)
-npm run test:watch        # vitest in watch mode
-npx tsc --noEmit          # type-check (fast, no dev server needed) — run this after any change
-npm run lint:types        # same as above
-npm run lint:js           # eslint (eslint.config.js)
-npm run lint:css          # stylelint --fix
-npm run lint              # runs all three via `bun run` — bun is NOT installed in this env;
-                           # run the three lint:* scripts individually with npm/npx instead
+npm run dev           # dev server on :3000 (needs .env.local with DATABASE_URL + AUTH_SECRET)
+npm run check         # typecheck + eslint + vitest — run after any change
+npm run build         # production build (does not need a database)
+npm run db:migrate    # apply pending db/migrations/*.sql (also runs on every Vercel deploy via vercel-build)
+npm run db:seed-demo  # fake data; refuses if any patient exists
+npm run admin:create -- --email X --password Y   # create admin / reset password (emergency)
+npm run test:e2e      # scripts/e2e.mjs: ~60 API checks against a RUNNING server + REAL database
 ```
 
-Unit tests use Vitest + Testing Library (`vitest.config.ts` — deliberately separate from
-`vite.config.ts`, which loads the TanStack Start SSR/prerender/codegen plugin that unit tests don't
-need). Test files sit next to what they test (`src/lib/financeStats.test.ts`, etc.). There is no
-Playwright/e2e suite.
-
-No environment variables are required to run this project. `VITE_GOOGLE_CLIENT_ID` is the one
-optional exception (see "Google Calendar sync" below).
+E2E needs an empty **test** database and a running server, e.g.
+`DATABASE_URL=.../odonto_test npm run db:migrate && npm run build && DATABASE_URL=... npx next start -p 3100`
+then `E2E_BASE_URL=http://localhost:3100 npm run test:e2e`. CI (`.github/workflows/ci.yml`) runs
+all of this with a Postgres service container. "Done" means typecheck + lint + unit + E2E green,
+not just a successful build.
 
 ## Architecture
 
-### No backend — everything lives in the browser's localStorage
+- `src/app/(app)/*` — logged-in pages (client components using React Query). `(app)/layout.tsx`
+  validates the session **server-side** and redirects to `/login`. `src/proxy.ts` (Next 16's
+  renamed middleware) only redirects cookie-less requests to `/login?next=...`.
+- `src/app/api/**/route.ts` — the backend. Every handler: `export const X = route(async (req, ctx) => { const user = await requireUser() /* or requireAdmin() */; const data = await readBody(req, schema); ...; await audit(...); return json(...) })`.
+  `route()` (`src/server/http.ts`) turns `HttpError`, `ZodError` and Postgres error codes into
+  `{ error: "mensagem" }` JSON with the right status and blocks cross-origin writes.
+- `src/server/*` — server-only (`import 'server-only'`): `db.ts` (pg Pool, `query`/`queryOne`/
+  `transaction`, `buildInsert`/`buildSet` which only accept whitelisted columns), `auth.ts`
+  (bcrypt, JWT cookie `odonto_session`, session re-read from DB every request, lockout after 5
+  failures), `schemas.ts` (all zod input schemas + `*_COLUMNS` whitelists), `repos/*.ts` (all SQL),
+  `audit.ts`.
+- `src/lib/*` — shared by client/server: `types.ts` (API JSON shapes), `dates.ts`, `financeStats.ts`,
+  `br.ts` (CPF/phone masks), `api.ts` (client fetch wrapper), `googleCalendar.ts`, `whatsapp.ts`.
+- `src/hooks/queries.ts` — every read goes through a hook here; after a write call
+  `invalidate(keys.x)`.
+- No ORM on purpose. Plain parameterized SQL.
 
-There is no server, no database, no API layer of any kind. React components call
-`blink.db.table(...)` and `blink.auth.*` (see `src/blink/client.ts`), which is a thin re-export of
-`src/blink/demoClient.ts` — the actual implementation. `demoClient.ts` reads/writes a single JSON
-blob in `localStorage` (`odonto_demo_db_v1`), seeded on first load from `src/blink/demoData.ts`
-(fake patients/agenda/financeiro/prontuarios, with dates computed relative to "today" so the demo
-never looks stale). `src/blink/sanitize.ts` holds a small shared helper (empty-string form fields
-become `null`).
+## Rules that are easy to break
 
-`blink.auth` (`DemoAuth` in `demoClient.ts`) auto-creates/restores a session on load — **there is
-no real login**, a portfolio visitor lands straight on the dashboard. `AppLayout`'s auth screen
-(`src/components/AppLayout.tsx`) still exists and is fully wired (accepts any email/password,
-persists to `localStorage`) but is normally unreachable; it only shows if something explicitly
-calls `blink.auth.logout()` (the sidebar's "Sair" button).
-
-The `blink.auth.*` / `blink.db.table(name).list/get/create/update/delete` shape is a
-**compatibility shim** left over from when this ran on a real Supabase backend (see "History") —
-route components were written against that shape and still are, even though nothing behind it
-talks to a network anymore. When adding a new table, extend `BACKUP_TABLES` in `demoClient.ts` if
-it should be included in the Configuracoes export/import backup feature.
-
-### Routing gotcha: file-based layout routes need `<Outlet/>`
-
-TanStack Router (file-based) treats a file (`pacientes.tsx`) alongside a same-named folder
-(`pacientes/`) as a **parent layout** for everything inside that folder. If the parent component
-doesn't render `<Outlet/>`, child routes silently never render (URL changes, content doesn't) —
-this exact bug broke patient registration once. `src/routes/_app/pacientes.tsx` is now a thin
-`() => <Outlet />` layout; the actual list page moved to `src/routes/_app/pacientes/index.tsx`.
-Keep this pattern in mind before adding new nested routes under an existing page.
-
-### Auth screen states (`src/components/AppLayout.tsx`)
-
-`AppLayout` branches on `useAuth()` state in this order: `isPasswordRecovery` (show
-`NewPasswordScreen`) → `isLoading` (skeleton) → `!isAuthenticated` (show `AuthScreen`, which
-itself has signin/signup/forgot-password modes, all fake/local in this build) → authenticated app
-shell. `useAuth` (`src/hooks/useAuth.ts`) wraps `blink.auth.onAuthStateChanged`.
-
-The whole authenticated app (`src/routes/_app.tsx` and everything under `_app/`) is wrapped in
-`<BlinkClientBoundary>` (a `ClientOnly` from TanStack Router) — these routes never actually
-render on the server, only a static skeleton fallback. This is why `localStorage`/`window`/
-`blink.auth` reads are safe in page components: they only ever run in the browser.
-
-### Google Calendar sync (`src/lib/googleCalendar.ts`, `src/hooks/useGoogleCalendar.ts`)
-
-The one real external integration left in this build. Client-only OAuth via Google Identity
-Services (GIS) — no backend, no client secret, no refresh token. `connect()` gets a short-lived
-(~1h) access token and stores it in `localStorage` (must be `localStorage` not `sessionStorage` —
-the connect button and the appointment-creation flow are on different pages/route mounts, and
-`sessionStorage` doesn't share across tabs, which caused a real bug once). Appointment
-create/cancel/delete in `agenda.tsx` and `consultas.tsx` best-effort push to Google when
-connected; failures there must never block the underlying `blink.db.table(...)` write. Requires
-`VITE_GOOGLE_CLIENT_ID` in `.env` and the Google Cloud OAuth client's "Authorized JavaScript
-origins" to match wherever the app is served from (`localhost:3000` in dev). Without it configured,
-the "Conectar Google Calendar" button just does nothing — the rest of the app is unaffected.
-
-### WhatsApp reminders (`src/lib/whatsapp.ts`)
-
-Not an API integration — just builds a `wa.me`/`api.whatsapp.com` deep link with
-`encodeURIComponent`-escaped prefilled text and does `window.open`. No account, no cost, no
-backend. Message text intentionally avoids most accented characters (repo convention, see below).
-
-### Clinic branding (`src/hooks/useClinicBranding.ts`, `clinic_settings` table)
-
-Clinic name/logo are fetched via `blink.db.table('clinic_settings').list()` — a plain read from
-the same localStorage store as everything else, seeded with a default name/no logo in
-`demoData.ts`. Editable from Configuracoes.
-
-### CSV patient import (`src/lib/patientImport.ts`)
-
-Auto-detects common Portuguese/English column headers (accent- and case-insensitive) via
-`PATIENT_FIELDS`/`FIELD_ALIASES`, shows a mapping + preview before writing anything, then bulk
-inserts via `blink.db.table(...).createMany()`. Deliberately does **not** support `.xlsx` — both
-browser-side Excel-parsing libraries available on npm (`xlsx`/SheetJS, `exceljs`) carry known
-unpatched vulnerabilities or a large added dependency surface; users are asked to export their
-spreadsheet to CSV first instead.
+- **Dates:** calendar dates are `'YYYY-MM-DD'` strings end to end. `pg` is configured to return
+  DATE as text (`types.setTypeParser(1082)` in `db.ts`). "Today" must come from `todayISO()`
+  (clinic timezone, default America/Sao_Paulo) — never `new Date().toISOString().slice(0,10)`
+  (UTC; Vercel runs in UTC). Month ranges sent to the API must use `monthEnd()`, not `-31`.
+- **Migrations:** never edit a migration that already ran in production; add `000N_*.sql`.
+  Prefer backward-compatible changes (the new migration runs before the new code goes live).
+- **Medical records** use `ON DELETE RESTRICT` (legal retention) — deleting a patient with records
+  must fail with 409; don't "fix" that with a cascade.
+- **Permissions are enforced in the API** (`requireAdmin()`), UI hiding is only cosmetic.
+- **Users are deactivated, never deleted**; there must always be ≥1 active admin
+  (`assertNotLastAdmin`). Password change / deactivation bumps `session_version`.
+- **No public signup.** `/setup` only works while the `users` table is empty.
+- New columns: add to the table's `*_COLUMNS` whitelist and zod schema in `schemas.ts`, the type in
+  `lib/types.ts`, then the UI.
+- Google Calendar and WhatsApp are best-effort: their failures must never block the DB write.
+- Row action buttons use the `.row-actions` CSS class (hidden until hover only on devices that
+  support hover; always visible on touch). Don't reintroduce `opacity-0 group-hover:opacity-100`.
+- Dialogs for create/edit are remounted with `key={dialog.key}` from `useDialog()` instead of
+  syncing props into state with `useEffect`.
 
 ## Conventions
 
-- Source strings mostly avoid accented Portuguese characters (`Configuracoes` not
-  `Configurações`, `nao` not `não`) — a repo-wide style from the original scaffold, kept for
-  consistency. New user-facing strings should generally follow suit unless already inconsistent
-  nearby.
-- The real layout is `src/components/AppLayout.tsx` + `src/components/AppSidebar.tsx` — there is
-  no other layout scaffold in the repo.
-- Generic dependencies with no imports anywhere in `src/` have been deliberately removed
-  (`date-fns`, `framer-motion`, `@react-three/*`, `@dnd-kit/core`, `react-hook-form`, `zod`,
-  `react-hot-toast`, `react-responsive`, `@hookform/resolvers`, `@supabase/supabase-js`). Before
-  adding a "might need it later" dependency, check it's actually imported before it lands in
-  `package.json`.
-- `@tailwindcss/vite` wants Vite 5-7, the project pins Vite 8 — a real peer dependency conflict
-  (`npm install` would fail with ERESOLVE otherwise). The root `.npmrc` (`legacy-peer-deps=true`)
-  handles this automatically now, so plain `npm install` works, including on Vercel.
-
-## What NOT to do
-
-This is a static, backend-free portfolio build on purpose — don't undo that as a side effect of
-an unrelated feature request:
-
-- **Don't add a real backend, database, or server-side API** (Supabase, Express, serverless
-  functions, etc.) unless the user explicitly asks to turn this back into a real product. If a
-  feature seems to need one (e.g. real auth, a paid API key that can't ship to the browser), say
-  so and ask, rather than quietly wiring one up.
-- **Don't reintroduce an AI assistant / any feature needing a server-held secret.** One used to
-  exist here (Claude API via a Supabase Edge Function) and was removed specifically because there
-  is no backend left to hold the key.
-- **Don't assume multi-user/multi-device persistence.** Data lives in one browser's localStorage;
-  it doesn't sync across devices or between two people looking at the demo at once. That's
-  expected, not a bug to fix.
+- UI strings avoid accented characters (`Configuracoes`, `nao`) — repo-wide convention. Docs in
+  `docs/` use normal Portuguese.
+- `.env.local` holds local secrets and is gitignored. Production env vars live in Vercel.
+- Don't add dependencies that aren't imported anywhere.
 
 ## History
 
-Originally scaffolded by Blink (blink.new) with `@blinkdotnew/sdk` as the backend, then migrated
-to a real Supabase backend (Postgres + Auth, Row Level Security) for actual per-clinic production
-use — `docs/IMPLANTACAO.md` and this file used to describe that setup (Supabase SQL migrations,
-env vars, a Supabase Edge Function proxying the Claude API for an "Assistente IA" feature). That
-entire backend was later removed to turn this into a pure portfolio/demo piece: no accounts, no
-setup, no cost, works instantly for anyone who opens the deployed link. If you see a reference to
-`@blinkdotnew/sdk`, `blink.new`, Supabase, or an AI assistant feature outside of this historical
-context, that's leftover/dead — none of it is installed or wired up anymore.
+Started as a Blink (blink.new) scaffold, then Supabase, then a localStorage-only portfolio demo
+(Vite + TanStack Router). In Sept 2026 it was rebuilt as this Next.js + Postgres product for a real
+clinic. Any reference to `blink`, Supabase, TanStack Router, `localStorage` data, or an AI
+assistant feature is historical and dead.

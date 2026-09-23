@@ -1,50 +1,41 @@
 # OdontoManage Pro
 
-Sistema de gestao para clinicas odontologicas: pacientes, agenda, consultas, financeiro e
-prontuario, com sincronizacao opcional com Google Calendar e lembretes via WhatsApp.
+Sistema de gestão para clínicas odontológicas: **pacientes, agenda, consultas, financeiro,
+prontuário, equipe e auditoria** — com lembretes por WhatsApp e sincronização opcional com
+Google Calendar.
 
-**Este e um projeto de portfolio/demonstracao — nao tem backend, nao tem banco de dados real.**
-Todos os dados (pacientes, consultas, financeiro, prontuarios) sao ficticios e vivem no
-`localStorage` do navegador de quem estiver vendo a demo; nada e enviado pra nenhum servidor.
+Next.js 16 (frontend + API no mesmo projeto) · PostgreSQL (Neon) · deploy na Vercel.
 
-## Stack
+## Documentação
 
-- **React 19 + TypeScript**, roteamento via **TanStack Router** (file-based)
-- **Tailwind CSS 4** + shadcn/ui (Radix primitives)
-- **Vitest + Testing Library** para testes unitarios
-- Sem backend: toda a "persistencia" e uma camada em `src/blink/demoClient.ts` que le/escreve no
-  `localStorage`, seedada com dados ficticios em `src/blink/demoData.ts`
+| Documento | Para quem |
+|---|---|
+| [docs/INFRAESTRUTURA.md](docs/INFRAESTRUTURA.md) | Desenvolvedor(a): arquitetura, banco, API, segurança, deploy, backup, runbook de problemas, como evoluir |
+| [docs/MANUAL-DO-USUARIO.md](docs/MANUAL-DO-USUARIO.md) | Equipe da clínica: como usar cada tela |
+| [CLAUDE.md](CLAUDE.md) | Instruções para assistentes de código (Claude Code) trabalharem no repositório |
 
-## Funcionalidades
-
-- Cadastro de pacientes (com importacao em massa via CSV)
-- Agenda de consultas com sincronizacao opcional com Google Calendar
-- Controle financeiro (receitas, despesas, parcelamentos)
-- Prontuario/anotacoes clinicas
-- Lembretes de consulta via WhatsApp (link direto, sem integracao paga)
-- Marca da clinica (nome/logo) configuravel
-
-## Rodando localmente
+## Início rápido (desenvolvimento)
 
 ```bash
-npm install --legacy-peer-deps
-npm run dev             # http://localhost:3000
+npm install
+cp .env.example .env.local     # preencha DATABASE_URL e AUTH_SECRET
+npm run db:migrate             # cria as tabelas
+npm run dev                    # http://localhost:3000 → configuração inicial (cria o admin)
 ```
-
-Nenhuma variavel de ambiente e necessaria — o login entra direto com dados ficticios. Veja
-[CLAUDE.md](CLAUDE.md) para detalhes de arquitetura.
 
 ## Comandos
 
 ```bash
-npm run dev              # servidor de dev na porta 3000
-npm run build             # build de producao
-npm test                  # testes unitarios (Vitest)
-npx tsc --noEmit           # checagem de tipos
-npm run lint:js            # ESLint
-npm run lint:css           # Stylelint
+npm run dev            # servidor de desenvolvimento
+npm run check          # tipos + lint + testes unitários
+npm run build          # build de produção
+npm run db:migrate     # aplica migrations pendentes (também roda em todo deploy)
+npm run db:seed-demo   # dados fictícios para treinamento (recusa se houver pacientes)
+npm run admin:create -- --email EMAIL --password SENHA   # emergência: cria/redefine admin
+npm run test:e2e       # testes de ponta a ponta (servidor + banco de TESTE)
 ```
 
-## Licenca
+## Deploy
 
-Projeto pessoal, sem licenca de uso definida.
+Vercel + Neon, passo a passo em [docs/INFRAESTRUTURA.md §10](docs/INFRAESTRUTURA.md#10-deploy-em-produção-vercel--neon).
+Variáveis obrigatórias: `DATABASE_URL`, `AUTH_SECRET`.

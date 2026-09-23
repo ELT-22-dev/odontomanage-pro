@@ -1,15 +1,24 @@
 /**
- * Google Calendar sync via Google Identity Services (GIS) — client-only,
- * no backend. The access token GIS returns is short-lived (~1h) and there is
- * no refresh token in this flow, so the connection needs to be renewed
- * ("Conectar Google Calendar") periodically. Trade-off accepted to avoid
- * running a server just to keep an OAuth client secret safe.
+ * Sincronizacao com Google Calendar via Google Identity Services (GIS), feita
+ * no navegador de quem conecta. O token do Google dura ~1h e nao ha refresh
+ * token neste fluxo, entao a conexao precisa ser renovada periodicamente
+ * (Configuracoes → Integracoes). Cada usuario conecta a propria agenda.
+ * Falha aqui NUNCA impede salvar a consulta no sistema.
  */
+import { CLINIC_TIMEZONE, addDays } from './dates'
 
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
+const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
+export const GOOGLE_CALENDAR_CONFIGURED = !!CLIENT_ID
 const SCOPE = 'https://www.googleapis.com/auth/calendar.events'
 const TOKEN_STORAGE_KEY = 'odonto_google_calendar_token'
-const APPOINTMENT_DURATION_MINUTES = 30
+
+// Notifica componentes (useGoogleCalendar) quando conecta/desconecta.
+const listeners = new Set<() => void>()
+export function subscribe(listener: () => void) {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+const notify = () => listeners.forEach((l) => l())
 
 interface StoredToken {
   accessToken: string
@@ -45,7 +54,7 @@ declare global {
 let gisLoadPromise: Promise<void> | null = null
 
 function loadGis(): Promise<void> {
-  if (typeof window === 'undefined') return Promise.reject(new Error('Google Calendar requires a browser'))
+  if (typeof window === 'undefined') return Promise.reject(new Error('Google Calendar so funciona no navegador'))
   if (window.google?.accounts?.oauth2) return Promise.resolve()
   if (gisLoadPromise) return gisLoadPromise
   gisLoadPromise = new Promise((resolve, reject) => {
@@ -75,6 +84,7 @@ function getStoredToken(): StoredToken | null {
 function saveToken(accessToken: string, expiresInSeconds: number) {
   const token: StoredToken = { accessToken, expiresAt: Date.now() + expiresInSeconds * 1000 - 30_000 }
   localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify(token))
+  notify()
 }
 
 export function isConnected(): boolean {
@@ -83,10 +93,11 @@ export function isConnected(): boolean {
 
 export function disconnect() {
   localStorage.removeItem(TOKEN_STORAGE_KEY)
+  notify()
 }
 
 export async function connect(): Promise<void> {
-  if (!CLIENT_ID) throw new Error('VITE_GOOGLE_CLIENT_ID nao configurado')
+  if (!CLIENT_ID) throw new Error('Integracao com Google Calendar nao configurada (NEXT_PUBLIC_GOOGLE_CLIENT_ID)')
   await loadGis()
   return new Promise((resolve, reject) => {
     const client = window.google!.accounts.oauth2.initTokenClient({
@@ -118,7 +129,7 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<Respon
   })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
-    throw new Error(`Google Calendar API error (${res.status}): ${body.slice(0, 200)}`)
+    throw new Error(`Erro do Google Calendar (${res.status}): ${body.slice(0, 200)}`)
   }
   return res
 }
@@ -131,11 +142,18 @@ export interface CalendarAppointmentInput {
   dentistName?: string | null
   room?: string | null
   notes?: string | null
+  durationMinutes?: number
+}
+
+function endOf(date: string, time: string, minutes: number) {
+  const [h, m] = time.split(':').map(Number)
+  const total = h * 60 + m + minutes
+  const day = addDays(date, Math.floor(total / 1440))
+  const mins = total % 1440
+  return `${day}T${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}:00`
 }
 
 function toEventBody(input: CalendarAppointmentInput) {
-  const start = new Date(`${input.date}T${input.time}:00`)
-  const end = new Date(start.getTime() + APPOINTMENT_DURATION_MINUTES * 60_000)
   const descriptionParts = [
     input.dentistName ? `Dentista: ${input.dentistName}` : null,
     input.room ? `Sala: ${input.room}` : null,
@@ -144,8 +162,10 @@ function toEventBody(input: CalendarAppointmentInput) {
   return {
     summary: `${input.type} - ${input.patientName}`,
     description: descriptionParts.join('\n') || undefined,
-    start: { dateTime: start.toISOString() },
-    end: { dateTime: end.toISOString() },
+    // Horario "de parede" + fuso da clinica: o Google converte certo mesmo se
+    // quem conectou estiver com o computador em outro fuso.
+    start: { dateTime: `${input.date}T${input.time}:00`, timeZone: CLINIC_TIMEZONE },
+    end: { dateTime: endOf(input.date, input.time, input.durationMinutes ?? 30), timeZone: CLINIC_TIMEZONE },
   }
 }
 
@@ -169,6 +189,6 @@ export async function deleteEvent(eventId: string): Promise<void> {
   try {
     await apiFetch(`/calendars/primary/events/${encodeURIComponent(eventId)}`, { method: 'DELETE' })
   } catch {
-    // Event may already be gone (deleted directly in Google Calendar) — not fatal.
+    // O evento pode ja ter sido apagado direto no Google — nao e erro.
   }
 }

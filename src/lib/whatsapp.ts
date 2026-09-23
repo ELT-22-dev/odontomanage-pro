@@ -1,3 +1,5 @@
+import { formatDate } from './dates'
+
 /** Converts a Brazilian phone number into the digits-only format wa.me expects (country code + DDD + number). */
 function toWhatsAppNumber(rawPhone: string): string {
   const digits = rawPhone.replace(/\D/g, '')
@@ -21,9 +23,7 @@ export function buildAppointmentReminderMessage(params: {
   type?: string | null
 }): string {
   const { patientName, date, time, dentistName, type } = params
-  const formattedDate = new Date(date + 'T00:00').toLocaleDateString('pt-BR', {
-    weekday: 'long', day: '2-digit', month: 'long',
-  })
+  const formattedDate = formatDate(date, { weekday: 'long', day: '2-digit', month: 'long' })
   const typeLabel = type && type.trim().toLowerCase() !== 'consulta' ? ` de ${type}` : ''
   let msg = `Ola ${patientName}! Passando para lembrar da sua consulta${typeLabel} agendada para ${formattedDate} as ${time}`
   if (dentistName) msg += ` com Dr(a). ${dentistName}`
@@ -31,6 +31,6 @@ export function buildAppointmentReminderMessage(params: {
   return msg
 }
 
-export function buildGreetingMessage(patientName: string): string {
-  return `Ola ${patientName}! Aqui e da clinica. Tudo bem?`
+export function buildGreetingMessage(patientName: string, clinicName?: string): string {
+  return `Ola ${patientName}! Aqui e da ${clinicName || 'clinica'}. Tudo bem?`
 }

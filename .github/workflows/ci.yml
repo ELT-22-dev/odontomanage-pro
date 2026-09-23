@@ -1,5 +1,6 @@
 name: CI
 
+# Roda a cada push/PR. Se ficar vermelho, NAO faca merge/deploy.
 on:
   pull_request:
   push:
@@ -8,29 +9,49 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+
+    # Postgres descartavel so para os testes de ponta a ponta.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: odonto_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/odonto_test
+      AUTH_SECRET: ci-only-secret-with-at-least-32-characters-xx
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+          cache: npm
 
-      # See CLAUDE.md — @tailwindcss/vite wants Vite 5-7, this repo pins Vite 8.
-      - run: npm install --legacy-peer-deps
+      - run: npm ci
 
-      - name: Type check
-        run: npx tsc --noEmit
+      - name: Tipos (TypeScript)
+        run: npm run typecheck
 
-      - name: Tests
-        run: npm run test
+      - name: Lint (ESLint)
+        run: npm run lint
 
-      - name: Lint
-        run: npx eslint . --ext ts,tsx --report-unused-disable-directives
-        # Known pre-existing violations not yet triaged. Flip this to blocking
-        # once they're fixed.
-        continue-on-error: true
+      - name: Testes unitarios (Vitest)
+        run: npm test
 
-      # Real production build (prerenders every route). No env vars needed —
-      # this app has no backend, everything is static + localStorage.
-      - name: Build
+      - name: Migrations no banco de teste
+        run: npm run db:migrate
+
+      - name: Build de producao
         run: npm run build
+
+      - name: Testes de ponta a ponta (API + banco real)
+        run: |
+          npx next start -p 3000 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/api/health && break; sleep 1; done
+          E2E_BASE_URL=http://localhost:3000 npm run test:e2e
