@@ -1,0 +1,12 @@
+# Nunca enviar segredos locais nem artefatos no deploy via CLI
+.env
+.env.local
+.env*.local
+.next
+node_modules
+.claude
+.tanstack
+.agents
+test-results
+dev
+*.log
