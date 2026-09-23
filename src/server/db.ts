@@ -20,7 +20,7 @@ const globalForPg = globalThis as unknown as { pgPool?: Pool }
 function getPool(): Pool {
   if (!globalForPg.pgPool) {
     globalForPg.pgPool = new Pool({
-      connectionString: env().DATABASE_URL,
+      connectionString: normalizeSslMode(env().DATABASE_URL),
       // Funcoes serverless: poucas conexoes por instancia. O pooler do Neon
       // (host "-pooler") multiplexa isso para o banco.
       max: 5,
@@ -29,6 +29,15 @@ function getPool(): Pool {
     })
   }
   return globalForPg.pgPool
+}
+
+/**
+ * O `pg` ja trata sslmode=require como verify-full (valida o certificado) e
+ * avisa no log que isso vai mudar na v9. Deixamos explicito o modo seguro,
+ * que e o que a string do Neon precisa.
+ */
+function normalizeSslMode(url: string): string {
+  return url.replace(/sslmode=(require|prefer|verify-ca)/, 'sslmode=verify-full')
 }
 
 type Executor = Pick<PoolClient, 'query'>

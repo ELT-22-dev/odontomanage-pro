@@ -33,7 +33,8 @@ function pgErrorToHttp(err: { code?: string; constraint?: string }): HttpError |
   switch (err.code) {
     case '23505':
       return new HttpError(409, 'Ja existe um registro com esses dados')
-    case '23503':
+    case '23503': // foreign_key_violation
+    case '23001': // restrict_violation (ON DELETE RESTRICT no Postgres 17+, ex.: Neon)
       if (err.constraint?.startsWith('medical_records_patient_id')) {
         return new HttpError(409, 'Este paciente tem prontuarios e nao pode ser excluido. Marque-o como inativo.')
       }

@@ -23,7 +23,8 @@ export async function connect() {
     console.error('DATABASE_URL nao definida. Crie o arquivo .env.local (veja .env.example).')
     process.exit(1)
   }
-  const client = new pg.Client({ connectionString: url })
+  // Mesmo ajuste de src/server/db.ts: sslmode explicito e seguro (verify-full).
+  const client = new pg.Client({ connectionString: url.replace(/sslmode=(require|prefer|verify-ca)/, 'sslmode=verify-full') })
   await client.connect()
   return client
 }
