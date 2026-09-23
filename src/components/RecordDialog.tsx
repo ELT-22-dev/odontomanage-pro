@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
+import { Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -8,11 +9,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { keys, useInvalidate, usePatients } from '@/hooks/queries'
+import { keys, useAiEnabled, useInvalidate, usePatients } from '@/hooks/queries'
 import { api, errorMessage } from '@/lib/api'
 import { RECORD_TYPE_STATUS } from '@/lib/statusStyles'
 import { cn } from '@/lib/utils'
-import type { MedicalRecord, RecordType } from '@/lib/types'
+import type { AiStructuredNote, MedicalRecord, RecordType } from '@/lib/types'
 
 const TYPES: RecordType[] = ['note', 'diagnosis', 'prescription', 'treatment']
 
@@ -44,10 +45,37 @@ export function RecordDialog({
     prescriptions: record?.prescriptions ?? '',
   })
   const [saving, setSaving] = useState(false)
+  const [aiText, setAiText] = useState('')
+  const [aiBusy, setAiBusy] = useState(false)
+  const aiEnabled = useAiEnabled()
   const { data: patients = [] } = usePatients()
   const invalidate = useInvalidate()
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }))
+
+  /** Manda a anotacao livre para a IA e preenche os campos (nada e salvo ainda). */
+  const organizeWithAi = async () => {
+    const hasContent = [form.content, form.diagnosis, form.treatment_plan, form.prescriptions].some((v) => v.trim())
+    if (hasContent && !confirm('Substituir o conteudo atual dos campos pelo texto organizado pela IA?')) return
+    setAiBusy(true)
+    try {
+      const r = await api.post<AiStructuredNote>('/api/ai/structure-note', { text: aiText })
+      setForm((f) => ({
+        ...f,
+        record_type: r.record_type,
+        title: f.title.trim() ? f.title : r.title,
+        content: r.content,
+        diagnosis: r.diagnosis,
+        treatment_plan: r.treatment_plan,
+        prescriptions: r.prescriptions,
+      }))
+      toast.success('Campos preenchidos pela IA. Revise antes de salvar.')
+    } catch (err) {
+      toast.error(errorMessage(err, 'A IA nao conseguiu organizar o texto'))
+    } finally {
+      setAiBusy(false)
+    }
+  }
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -113,6 +141,26 @@ export function RecordDialog({
               <Input id="rec-title" value={form.title} onChange={set('title')} placeholder="Ex: Evolucao - limpeza" required />
             </div>
           </div>
+          {aiEnabled && !editing && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+              <Label htmlFor="rec-ai" className="flex items-center gap-1.5">
+                <Sparkles className="size-3.5 text-primary" /> Anotacao livre — a IA organiza nos campos abaixo
+              </Label>
+              <Textarea
+                id="rec-ai"
+                rows={3}
+                value={aiText}
+                onChange={(e) => setAiText(e.target.value)}
+                placeholder="Ex: pcte relata dor ao mastigar lado esq ha 1 semana. 36 com carie profunda oclusal, teste frio positivo prolongado. Indicado canal 36 em 3 sessoes. Prescrito ibuprofeno 400mg 8/8h por 3 dias."
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] text-muted-foreground">A IA so sugere — revise tudo antes de salvar. Nao precisa escrever nome ou CPF.</p>
+                <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={organizeWithAi} disabled={aiBusy || aiText.trim().length < 10}>
+                  <Sparkles className="size-3.5" /> {aiBusy ? 'Organizando...' : 'Organizar com IA'}
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="rec-content">Evolucao / Anamnese</Label>
             <Textarea id="rec-content" rows={4} value={form.content} onChange={set('content')} placeholder="Queixa, historico, procedimento realizado..." />

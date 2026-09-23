@@ -7,6 +7,7 @@ import {
   ArrowLeft, CalendarDays, CalendarPlus, ClipboardList, DollarSign, Edit, FilePlus, Mail, MessageCircle, Phone, Plus, Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { AiPatientSummary } from '@/components/AiPatientSummary'
 import { AppointmentDialog } from '@/components/AppointmentDialog'
 import { AppointmentRow } from '@/components/AppointmentRow'
 import { EmptyState, LoadError, Loading } from '@/components/EmptyState'
@@ -155,6 +156,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
         </TabsList>
 
         <TabsContent value="info" className="space-y-6 mt-4">
+          <AiPatientSummary patientId={patient.id} />
           <div className="grid gap-4 sm:grid-cols-3">
             {patient.phone && <ContactCard icon={<Phone className="size-4 text-muted-foreground" />} label="Telefone" value={patient.phone} />}
             {patient.whatsapp && <ContactCard icon={<MessageCircle className="size-4 text-green-500" />} label="WhatsApp" value={patient.whatsapp} />}

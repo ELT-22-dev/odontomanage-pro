@@ -2,6 +2,7 @@
 
 import { PageHeader } from '@/components/PageHeader'
 import { useIsAdmin } from '@/components/SessionProvider'
+import { AiSection } from '@/components/settings/AiSection'
 import { AuditSection } from '@/components/settings/AuditSection'
 import { ClinicSection } from '@/components/settings/ClinicSection'
 import { DataSection, IntegrationsSection } from '@/components/settings/DataSection'
@@ -22,6 +23,7 @@ export default function SettingsPage() {
       {isAdmin && <TeamSection />}
       <AppearanceSection />
       <IntegrationsSection />
+      <AiSection />
       <DataSection />
       {isAdmin && <AuditSection />}
     </div>

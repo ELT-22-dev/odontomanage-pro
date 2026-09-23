@@ -122,3 +122,26 @@ export interface AuditEntry {
   ip: string | null
   created_at: string
 }
+
+export interface AiStatus {
+  /** ANTHROPIC_API_KEY presente no servidor */
+  configured: boolean
+  /** admin ligou o assistente em Configuracoes */
+  enabled: boolean
+}
+
+export interface AiStructuredNote {
+  title: string
+  record_type: RecordType
+  content: string
+  diagnosis: string
+  treatment_plan: string
+  prescriptions: string
+}
+
+export interface AiPatientSummary {
+  summary: string
+  alerts: string[]
+  pending: string[]
+  last_visit: string
+}

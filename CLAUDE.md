@@ -52,6 +52,17 @@ not just a successful build.
   `invalidate(keys.x)`.
 - No ORM on purpose. Plain parameterized SQL.
 
+## AI assistant (`src/server/ai.ts`, `src/app/api/ai/*`)
+
+Claude via `@anthropic-ai/sdk` (`client.beta.messages.parse` + `betaZodOutputFormat`, model
+`claude-opus-5`, `fallbacks: "default"` with beta `server-side-fallback-2026-07-01`). Two features:
+structure a free-text note into record fields, and summarize a patient's history. Off unless
+`ANTHROPIC_API_KEY` is set AND an admin enables it (`clinic_settings.ai_enabled`). The key is
+server-only (never `NEXT_PUBLIC_`). The summary context is built server-side WITHOUT name, CPF,
+RG, phone, email, address or insurance — keep it that way. AI output is never saved automatically;
+the UI fills a form for human review. Every call is audited (metadata only) and rate-limited per
+user (`AI_HOURLY_LIMIT`). Test locally with `ANTHROPIC_BASE_URL` pointing at a mock and `E2E_AI=1`.
+
 ## Rules that are easy to break
 
 - **Dates:** calendar dates are `'YYYY-MM-DD'` strings end to end. `pg` is configured to return
@@ -66,6 +77,8 @@ not just a successful build.
 - **Users are deactivated, never deleted**; there must always be ≥1 active admin
   (`assertNotLastAdmin`). Password change / deactivation bumps `session_version`.
 - **No public signup.** `/setup` only works while the `users` table is empty.
+- **Never run `scripts/e2e.mjs` against production.** It creates an admin whose password is in the
+  (public) repo. The script refuses when users already exist unless `E2E_REUSE=1`.
 - New columns: add to the table's `*_COLUMNS` whitelist and zod schema in `schemas.ts`, the type in
   `lib/types.ts`, then the UI.
 - Google Calendar and WhatsApp are best-effort: their failures must never block the DB write.
@@ -86,4 +99,4 @@ not just a successful build.
 Started as a Blink (blink.new) scaffold, then Supabase, then a localStorage-only portfolio demo
 (Vite + TanStack Router). In Sept 2026 it was rebuilt as this Next.js + Postgres product for a real
 clinic. Any reference to `blink`, Supabase, TanStack Router, `localStorage` data, or an AI
-assistant feature is historical and dead.
+assistant feature is historical and dead — except the current AI assistant described above, which is a new, server-side implementation.

@@ -72,6 +72,10 @@ async function main() {
 
   console.log('\nConfiguracao inicial + login')
   const st = await anon('GET', '/api/auth/setup')
+  if (!st.data.needsSetup && process.env.E2E_REUSE !== '1') {
+    console.error('\nO banco ja tem usuarios. O E2E cria dados de teste: rode so em banco de TESTE vazio (ou E2E_REUSE=1, conscientemente).')
+    process.exit(2)
+  }
   if (st.data.needsSetup) {
     const setup = await admin('POST', '/api/auth/setup', { clinic_name: 'Clinica E2E', ...ADMIN })
     check('setup cria o primeiro admin', setup.status === 201, JSON.stringify(setup.data))
@@ -195,6 +199,26 @@ async function main() {
   const audit = await admin('GET', '/api/audit')
   const actions = new Set(audit.data.map((e) => e.action))
   check('auditoria registra login, criacao, edicao, exportacao e falha de login', ['login', 'create', 'update', 'export', 'login_failed'].every((a) => actions.has(a)), [...actions].join(','))
+
+  console.log('\nAssistente de IA')
+  const ai = await admin('GET', '/api/ai/status')
+  check('status da IA responde', ai.status === 200 && typeof ai.data.configured === 'boolean')
+  check('IA vem desligada por padrao', ai.data.enabled === false)
+  check('equipe NAO liga a IA (403)', (await staff('PUT', '/api/ai/status', { enabled: true })).status === 403)
+  if (!ai.data.configured) {
+    check('sem chave: ligar a IA e recusado (409)', (await admin('PUT', '/api/ai/status', { enabled: true })).status === 409)
+    check('sem chave: usar a IA responde 503', (await admin('POST', '/api/ai/structure-note', { text: 'paciente com dor no dente 36' })).status === 503)
+  } else if (process.env.E2E_AI === '1') {
+    // So com E2E_AI=1: faz chamadas a API da Anthropic (reais ou mockadas).
+    await admin('PUT', '/api/ai/status', { enabled: true })
+    const note = await admin('POST', '/api/ai/structure-note', { text: 'Pcte com dor no 36, carie profunda. Indicado canal. Ibuprofeno 400mg 8/8h 3 dias.' })
+    check('IA organiza anotacao em campos', note.status === 200 && typeof note.data.content === 'string' && 'prescriptions' in note.data, JSON.stringify(note.data))
+    const sum = await admin('POST', '/api/ai/patient-summary', { patient_id: p.data.id })
+    check('IA resume historico do paciente', sum.status === 200 && typeof sum.data.summary === 'string' && Array.isArray(sum.data.alerts), JSON.stringify(sum.data))
+    check('texto curto demais = 400', (await admin('POST', '/api/ai/structure-note', { text: 'oi' })).status === 400)
+    await admin('PUT', '/api/ai/status', { enabled: false })
+    check('IA desligada = 403 ao usar', (await admin('POST', '/api/ai/structure-note', { text: 'paciente com dor no dente 36' })).status === 403)
+  }
 
   console.log('\nLimpeza de consistencia')
   await admin('DELETE', `/api/medical-records/${r1.data.id}`)

@@ -9,7 +9,7 @@ import { useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { api } from '@/lib/api'
 import type {
-  Appointment, AuditEntry, ClinicSettings, MedicalRecord, Patient, Transaction, User,
+  AiStatus, Appointment, AuditEntry, ClinicSettings, MedicalRecord, Patient, Transaction, User,
 } from '@/lib/types'
 
 export const keys = {
@@ -22,6 +22,7 @@ export const keys = {
   dentists: ['dentists'] as const,
   users: ['users'] as const,
   audit: ['audit'] as const,
+  ai: ['ai-status'] as const,
 }
 
 function qs(params: Record<string, string | null | undefined>) {
@@ -81,4 +82,13 @@ export function useInvalidate() {
 export function useClinicName() {
   const { data } = useSettings()
   return data?.clinic_name?.trim() || 'OdontoManage Pro'
+}
+
+/** IA disponivel? (chave no servidor + ligada pelo admin) */
+export const useAiStatus = () =>
+  useQuery({ queryKey: keys.ai, queryFn: () => api.get<AiStatus>('/api/ai/status'), staleTime: 5 * 60_000 })
+
+export function useAiEnabled() {
+  const { data } = useAiStatus()
+  return !!(data?.configured && data?.enabled)
 }

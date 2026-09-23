@@ -59,6 +59,16 @@ Guia rápido para a equipe da clínica (recepção, dentistas e administração)
 - **Marcar como pago:** menu ⋯ do lançamento → Marcar como pago (a data do pagamento é preenchida).
 - **Exportar CSV:** aba Lançamentos → Exportar CSV (abre direto no Excel) — útil para o contador.
 
+## Assistente de IA (se a clínica ligar)
+
+- **Organizar anotação:** em *Novo registro* do prontuário, escreva ou dite o atendimento do seu
+  jeito (abreviações valem) no quadro "Anotação livre" e clique em **Organizar com IA**. Os campos
+  Evolução, Diagnóstico, Plano e Receita são preenchidos — **confira e corrija antes de salvar**.
+- **Resumo do paciente:** na ficha, aba Informações, clique em **Gerar resumo** para ver um resumo
+  do histórico, alertas (ex.: alergias registradas) e tratamentos pendentes. Não substitui a
+  leitura do prontuário.
+- A IA pode errar. Ela só usa o que está registrado e nada é salvo sem você clicar em salvar.
+
 ## Configurações
 
 - **Meu perfil:** nome, email e troca de senha.
@@ -68,6 +78,7 @@ Guia rápido para a equipe da clínica (recepção, dentistas e administração)
   quem saiu da clínica (o acesso cai na hora).
 - **Aparência:** tema claro, escuro ou igual ao do computador.
 - **Integrações:** conectar o Google Calendar para as consultas aparecerem na agenda do Google.
+- **Inteligência artificial** (admin liga/desliga): assistente de prontuário e resumo do paciente.
 - **Dados:** importar/exportar pacientes (CSV) e, para o admin, baixar o backup completo.
 - **Auditoria** (admin): quem fez o quê e quando.
 

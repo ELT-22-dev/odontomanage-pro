@@ -4,6 +4,15 @@
 > Depois de ler, você deve conseguir: subir o projeto localmente, fazer deploy, entender cada
 > peça, diagnosticar os problemas mais comuns e adicionar uma funcionalidade nova sem quebrar nada.
 
+**Ambiente de produção atual (set/2026)**
+
+| Item | Valor |
+|---|---|
+| URL | https://odontomanage-pro.vercel.app |
+| Vercel | time **EDLT24**, projeto **odontomanage-pro**, funções em São Paulo (`gru1`) |
+| Banco | Neon **odontomanage-db** (integração Vercel Marketplace, plano **Free**), variáveis só em *Production* |
+| Código | GitHub **ELT-22-dev/odontomanage-pro** (público — nunca commitar segredos) |
+
 **Sumário**
 
 1. [Visão geral](#1-visão-geral)
@@ -130,6 +139,7 @@ src/
     http.ts              route() (erros → JSON), readBody(), HttpError, parseId()
     auth.ts              senha, cookie de sessão, getSession/requireUser/requireAdmin, bloqueio
     audit.ts             grava na tabela audit_log
+    ai.ts                assistente de IA (Claude): organizar anotação, resumo do paciente
     schemas.ts           TODOS os schemas zod de entrada da API
     repos/               SQL por entidade: patients, appointments, transactions, records, users
   components/            componentes de tela (diálogos de criar/editar, linhas, shell, menu)
@@ -319,6 +329,9 @@ permissão/origem · `404` não encontrado · `409` conflito (duplicado, víncul
 | `GET/POST /api/users` · `PATCH /api/users/:id` | admin | equipe (não deixa remover o último admin) |
 | `GET /api/backup` | admin | JSON com todos os dados clínicos (sem senhas) |
 | `GET /api/audit` | admin | últimas 300 ações |
+| `GET /api/ai/status` · `PUT /api/ai/status` | todos · admin | IA configurada/ligada · liga/desliga |
+| `POST /api/ai/structure-note` | todos (IA ligada) | anotação livre → campos do prontuário (não salva) |
+| `POST /api/ai/patient-summary` | todos (IA ligada) | resumo do histórico, sem dados identificadores (não salva) |
 
 ## 8. Variáveis de ambiente
 
@@ -329,6 +342,8 @@ permissão/origem · `404` não encontrado · `409` conflito (duplicado, víncul
 | `SESSION_HOURS` | — | Duração da sessão (padrão 12). |
 | `NEXT_PUBLIC_TIMEZONE` | — | Fuso da clínica (padrão `America/Sao_Paulo`). |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | — | Ativa a integração com Google Calendar (seção 10.4). |
+| `ANTHROPIC_API_KEY` | — | Ativa o assistente de IA (seção 10.5). **Só no servidor** — nunca com prefixo `NEXT_PUBLIC_`. |
+| `AI_HOURLY_LIMIT` | — | Usos da IA por usuário por hora (padrão 40). Controle de custo. |
 
 Local: arquivo `.env.local` (modelo em `.env.example`, **nunca commitar**). Produção: painel da
 Vercel → Project → Settings → Environment Variables. Variáveis `NEXT_PUBLIC_*` exigem **novo
@@ -406,7 +421,43 @@ CNAME indicado no DNS do domínio. HTTPS é automático.
 Funciona no navegador de cada usuário (Configurações → Integrações → Conectar); o token dura ~1h.
 Falha na sincronização **nunca** impede salvar a consulta.
 
-### 10.5 Fluxo de atualização (depois da entrega)
+### 10.5 Assistente de IA (opcional)
+
+O que faz (`src/server/ai.ts`, rotas `src/app/api/ai/*`):
+
+- **Organizar anotação** (`POST /api/ai/structure-note`): no diálogo de prontuário, o dentista
+  escreve/dita um texto livre e a IA devolve os campos (evolução, diagnóstico, plano, receita).
+  **Nada é salvo** sem o profissional revisar e clicar em salvar.
+- **Resumo do paciente** (`POST /api/ai/patient-summary`): na ficha, resume prontuários e
+  consultas (resumo, alertas, pendências). Não é salvo.
+
+Como funciona:
+
+- SDK oficial `@anthropic-ai/sdk`, modelo `claude-opus-5`, saída estruturada validada com zod
+  (`betaZodOutputFormat`) e `fallbacks: "default"` (se o modelo recusar por política de
+  segurança, a própria API refaz com outro modelo recomendado).
+- **Desligado por padrão.** Precisa (1) da variável `ANTHROPIC_API_KEY` e (2) do admin ligar em
+  Configurações → Inteligência artificial (`clinic_settings.ai_enabled`, migration `0002_ai.sql`).
+- **Minimização de dados:** o resumo é montado no servidor **sem** nome, CPF, RG, telefone, email,
+  endereço e convênio — só idade, sexo, observações clínicas, prontuários e consultas. (Verificado no
+  teste: nenhuma dessas informações sai do servidor.)
+- Cada uso gera `ai_structure_note` / `ai_patient_summary` na auditoria (só metadados, sem o texto
+  clínico) e conta para o limite `AI_HOURLY_LIMIT`.
+- Erros da API viram mensagens em português (chave inválida → 503, limite → 429, recusa → 422).
+
+Para ativar em produção:
+
+1. [console.anthropic.com](https://console.anthropic.com) → crie uma chave (de preferência num
+   *workspace* só da clínica, com limite de gasto mensal configurado).
+2. Vercel → Settings → Environment Variables → `ANTHROPIC_API_KEY` (Production, tipo Sensitive) →
+   **Redeploy**.
+3. Entre como admin → Configurações → Inteligência artificial → **Ligar**.
+
+Custo: cobrança por uso na conta Anthropic (tokens). Uma anotação organizada ou um resumo custam
+tipicamente frações de centavo de dólar a poucos centavos; o limite por hora evita surpresas.
+Para trocar o modelo (ex.: um mais barato), altere `AI_MODEL` em `src/server/ai.ts`.
+
+### 10.6 Fluxo de atualização (depois da entrega)
 
 ```
 branch → commit → git push → Pull Request (CI roda) → merge na main → Vercel publica sozinha
@@ -450,7 +501,12 @@ pg_restore --no-owner -d "$NOVO_DATABASE_URL" odonto-AAAA-MM-DD.dump
 | Tipos | `npm run typecheck` | TypeScript estrito em todo o projeto |
 | Lint | `npm run lint` | regras do Next.js + React Hooks |
 | Unitários | `npm test` | datas/fuso, cálculos do financeiro, CPF/telefone, importação CSV |
-| **Ponta a ponta** | `npm run test:e2e` | 60 verificações: setup, login, CRUD de tudo, conflito de agenda, permissões admin×equipe, bloqueio de senha, sessões derrubadas, CSRF, backup, auditoria — contra servidor **e banco reais** |
+| **Ponta a ponta** | `npm run test:e2e` | ~67 verificações: setup, login, CRUD de tudo, conflito de agenda, permissões admin×equipe, bloqueio de senha, sessões derrubadas, CSRF, backup, auditoria — contra servidor **e banco reais** |
+
+> ⚠️ **Nunca rode o E2E no banco de produção.** Ele cria um admin de teste cuja senha está no
+> próprio script (que é público). O script se recusa a rodar se o banco já tiver usuários
+> (`E2E_REUSE=1` força — use só em banco de teste). Para testar a IA, `E2E_AI=1` (faz chamadas à
+> API; localmente dá para apontar `ANTHROPIC_BASE_URL` para um servidor falso).
 
 Para rodar o E2E local (em um banco **de teste vazio**, nunca o de produção):
 
@@ -513,7 +569,10 @@ Dados de saúde são **dados pessoais sensíveis** (LGPD, art. 5º, II e art. 11
 - trilha de auditoria de criação/edição/exclusão/exportação/login (tabela `audit_log`);
 - conexão criptografada (HTTPS e SSL até o banco), senhas com bcrypt;
 - exportação de dados (CSV de pacientes, CSV do financeiro, backup JSON completo) para atender pedidos do titular;
-- prontuário não pode ser apagado junto com o paciente (guarda obrigatória).
+- prontuário não pode ser apagado junto com o paciente (guarda obrigatória);
+- IA desligada por padrão; quando ligada, envia o mínimo necessário (sem nome/CPF/contato no
+  resumo) a um operador (Anthropic) e registra cada uso. Inclua a Anthropic na lista de operadores
+  do aviso de privacidade da clínica se a IA for ligada.
 
 **Responsabilidades da clínica (não técnicas):** termo de consentimento/aviso de privacidade ao
 paciente, contrato com os operadores (Vercel, Neon — ambos oferecem DPA), política de senhas da
@@ -527,6 +586,7 @@ equipe, desativar o acesso de quem sai da clínica no mesmo dia, e guardar backu
 | Neon | Free: armazenamento pequeno e janela de restauração curta | Plano pago de entrada (**Launch**, cobrado por uso — para uma clínica costuma ficar em poucas dezenas de dólares/mês) com restauração de 7+ dias |
 | Domínio `.com.br` | — | ≈ R$ 40/ano (registro.br) |
 | Google Calendar, WhatsApp (links) | ✅ | — |
+| IA (Anthropic, opcional) | — | Por uso; configure limite de gasto no console da Anthropic |
 
 (Valores de referência — confira as páginas de preço antes de fechar com a clínica.)
 
