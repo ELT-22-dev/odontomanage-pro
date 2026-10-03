@@ -4,13 +4,13 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  CalendarDays, ClipboardList, DollarSign, LayoutDashboard, LogOut, PanelLeft, Settings, Stethoscope, Users,
+  BellRing, CalendarDays, ClipboardList, DollarSign, LayoutDashboard, LogOut, PanelLeft, Settings, Stethoscope, Users,
 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useSession } from '@/components/SessionProvider'
-import { useClinicName, useSettings } from '@/hooks/queries'
+import { useClinicName, useFollowupCount, useSettings } from '@/hooks/queries'
 import { useLocalFlag } from '@/hooks/useLocalFlag'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -28,6 +28,7 @@ const NAV_ITEMS: NavItemDef[] = [
   { href: '/pacientes', icon: <Users className="size-4" />, label: 'Pacientes' },
   { href: '/agenda', icon: <CalendarDays className="size-4" />, label: 'Agenda' },
   { href: '/consultas', icon: <Stethoscope className="size-4" />, label: 'Consultas' },
+  { href: '/follow-up', icon: <BellRing className="size-4" />, label: 'Follow-up' },
   { href: '/financeiro', icon: <DollarSign className="size-4" />, label: 'Financeiro' },
   { href: '/prontuarios', icon: <ClipboardList className="size-4" />, label: 'Prontuarios' },
 ]
@@ -40,6 +41,8 @@ export function AppSidebar({ mobile = false, onNavigate }: { mobile?: boolean; o
   const pathname = usePathname()
   const clinicName = useClinicName()
   const { data: settings } = useSettings()
+  const { data: followupCount } = useFollowupCount()
+  const badgeFor = (href: string) => (href === '/follow-up' ? followupCount?.due || 0 : 0)
   const [storedCollapsed, setCollapsed] = useLocalFlag(SIDEBAR_KEY)
   const collapsed = !mobile && storedCollapsed
   const toggle = () => setCollapsed(!storedCollapsed)
@@ -98,7 +101,7 @@ export function AppSidebar({ mobile = false, onNavigate }: { mobile?: boolean; o
           <p className="px-3 pt-1 pb-1 text-[10px] font-medium text-sidebar-foreground/50 uppercase tracking-wider">Modulos</p>
         )}
         {NAV_ITEMS.map((item) => (
-          <SidebarNavItem key={item.href} item={item} collapsed={collapsed} active={isActive(item.href)} onClick={onNavigate} />
+          <SidebarNavItem key={item.href} item={item} collapsed={collapsed} active={isActive(item.href)} onClick={onNavigate} badge={badgeFor(item.href)} />
         ))}
       </nav>
 
@@ -162,11 +165,14 @@ function SidebarNavItem({
   collapsed,
   active,
   onClick,
+  badge = 0,
 }: {
   item: NavItemDef
   collapsed: boolean
   active: boolean
   onClick?: () => void
+  /** Numero de pendencias (ex.: follow-ups para hoje). 0 = sem selo. */
+  badge?: number
 }) {
   const link = (
     <Link
@@ -180,8 +186,16 @@ function SidebarNavItem({
           : 'text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground border-transparent',
       )}
     >
-      <span className="shrink-0">{item.icon}</span>
-      {!collapsed && <span className="truncate">{item.label}</span>}
+      <span className="relative shrink-0">
+        {item.icon}
+        {collapsed && badge > 0 && <span className="absolute -top-1 -right-1 size-2 rounded-full bg-red-500" />}
+      </span>
+      {!collapsed && <span className="truncate flex-1">{item.label}</span>}
+      {!collapsed && badge > 0 && (
+        <span className="ml-auto min-w-5 rounded-full bg-red-500 px-1.5 text-center text-[10px] font-semibold leading-5 text-white" aria-label={`${badge} pendente(s)`}>
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </Link>
   )
   if (!collapsed) return link

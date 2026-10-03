@@ -3,6 +3,7 @@ import { requireUser } from '@/server/auth'
 import { audit } from '@/server/audit'
 import { HttpError, json, readBody, route } from '@/server/http'
 import { createAppointment, findConflict, listAppointments } from '@/server/repos/appointments'
+import { closeOnNewAppointment } from '@/server/repos/followups'
 import { getPatient } from '@/server/repos/patients'
 import { createAppointmentSchema } from '@/server/schemas'
 
@@ -44,6 +45,8 @@ export const POST = route(async (req: NextRequest) => {
     }
   }
   const appt = await createAppointment(data, user.id)
-  await audit(req, user, 'create', 'appointment', appt.id, { date: appt.date, time: appt.time, patient: appt.patient_name })
-  return json(appt, 201)
+  // Paciente agendou: follow-ups de retorno/orcamento/reativacao dele estao resolvidos.
+  const followupsClosed = appt.status === 'cancelled' || appt.status === 'no_show' ? 0 : await closeOnNewAppointment(appt.patient_id, user.id)
+  await audit(req, user, 'create', 'appointment', appt.id, { date: appt.date, time: appt.time, patient: appt.patient_name, followups_closed: followupsClosed })
+  return json({ ...appt, followups_closed: followupsClosed }, 201)
 })

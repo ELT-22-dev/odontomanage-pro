@@ -125,8 +125,11 @@ export function AppointmentDialog({
       const saved = await save()
       if (!saved) return
       await syncGoogle(saved)
-      await invalidate(keys.appointments, keys.dentists, keys.patients)
+      await invalidate(keys.appointments, keys.dentists, keys.patients, keys.followups)
       toast.success(editing ? 'Consulta atualizada' : 'Consulta agendada')
+      const fu = saved as Appointment & { followups_closed?: number; followups_created?: number }
+      if (fu.followups_closed) toast.info(`${fu.followups_closed} follow-up(s) do paciente encerrado(s): ele agendou.`)
+      if (fu.followups_created) toast.info(`${fu.followups_created} follow-up(s) criado(s) automaticamente.`)
       onOpenChange(false)
     } catch (err) {
       toast.error(errorMessage(err, 'Erro ao salvar consulta'))

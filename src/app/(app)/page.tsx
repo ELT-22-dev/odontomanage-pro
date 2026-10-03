@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { CalendarDays, Clock, DollarSign, Plus, Search, UserPlus, Users, Wallet } from 'lucide-react'
+import { BellRing, CalendarDays, ChevronRight, Clock, DollarSign, Plus, Search, UserPlus, Users, Wallet } from 'lucide-react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
 import { AppointmentDialog } from '@/components/AppointmentDialog'
 import { PageHeader } from '@/components/PageHeader'
@@ -11,7 +11,7 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { useAppointments, usePatients, useTransactions } from '@/hooks/queries'
+import { useAppointments, useFollowupCount, usePatients, useTransactions } from '@/hooks/queries'
 import { useDialog } from '@/hooks/useDialog'
 import { addDays, formatDate, todayISO } from '@/lib/dates'
 import { computeTotals, filterByPeriod, formatCurrency } from '@/lib/financeStats'
@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const { data: patients = [] } = usePatients()
   const { data: appointments = [] } = useAppointments({ from: addDays(today, -13) })
   const { data: transactions = [] } = useTransactions()
+  const { data: followupCount } = useFollowupCount()
 
   const todayAppts = appointments.filter((a) => a.date === today && a.status !== 'cancelled')
   const monthTotals = useMemo(() => computeTotals(filterByPeriod(transactions, 'this-month', today)), [transactions, today])
@@ -79,6 +80,19 @@ export default function DashboardPage() {
           </>
         }
       />
+
+      {!!followupCount?.due && (
+        <Link
+          href="/follow-up"
+          className="flex items-center gap-3 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 hover:bg-primary/15 transition-colors"
+        >
+          <BellRing className="size-5 text-primary shrink-0" />
+          <span className="flex-1 text-sm">
+            <b>{followupCount.due} follow-up(s)</b> para fazer hoje — pos-procedimento, retornos e reativacoes.
+          </span>
+          <ChevronRight className="size-4 text-primary" />
+        </Link>
+      )}
 
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (

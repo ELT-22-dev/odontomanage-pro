@@ -6,6 +6,7 @@ import { AiSection } from '@/components/settings/AiSection'
 import { AuditSection } from '@/components/settings/AuditSection'
 import { ClinicSection } from '@/components/settings/ClinicSection'
 import { DataSection, IntegrationsSection } from '@/components/settings/DataSection'
+import { FollowupSection } from '@/components/settings/FollowupSection'
 import { AppearanceSection, ProfileSection } from '@/components/settings/ProfileSection'
 import { TeamSection } from '@/components/settings/TeamSection'
 import { useSettings } from '@/hooks/queries'
@@ -21,6 +22,7 @@ export default function SettingsPage() {
       <ProfileSection />
       {isAdmin && settings && <ClinicSection key={JSON.stringify(settings)} settings={settings} />}
       {isAdmin && <TeamSection />}
+      <FollowupSection />
       <AppearanceSection />
       <IntegrationsSection />
       <AiSection />

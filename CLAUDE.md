@@ -24,7 +24,7 @@ npm run build         # production build (does not need a database)
 npm run db:migrate    # apply pending db/migrations/*.sql (also runs on every Vercel deploy via vercel-build)
 npm run db:seed-demo  # fake data; refuses if any patient exists
 npm run admin:create -- --email X --password Y   # create admin / reset password (emergency)
-npm run test:e2e      # scripts/e2e.mjs: ~60 API checks against a RUNNING server + REAL database
+npm run test:e2e      # scripts/e2e.mjs: ~88 API checks against a RUNNING server + REAL database
 ```
 
 E2E needs an empty **test** database and a running server, e.g.
@@ -62,6 +62,17 @@ server-only (never `NEXT_PUBLIC_`). The summary context is built server-side WIT
 RG, phone, email, address or insurance — keep it that way. AI output is never saved automatically;
 the UI fills a form for human review. Every call is audited (metadata only) and rate-limited per
 user (`AI_HOURLY_LIMIT`). Test locally with `ANTHROPIC_BASE_URL` pointing at a mock and `E2E_AI=1`.
+
+## Follow-up (`src/server/repos/followups.ts`, `src/app/api/followups/*`, `src/lib/followup.ts`)
+
+Patient follow-up queue (`followups`) + auto-generation rules (`followup_rules`). Side effects live
+in the appointment routes: PATCH to `completed` applies matching rules (substring, accent-insensitive
+match on the appointment type, `ruleMatches`); PATCH to `no_show` creates a reactivation follow-up;
+POST of a new appointment closes the patient's pending recall/quote/reactivation follow-ups. Only
+status TRANSITIONS trigger generation, and partial unique indexes make it idempotent — keep both.
+Contact is a 1-click `wa.me` link (no paid API); AI drafts use the literal `{nome}` placeholder and
+never receive patient data — the browser fills the name. Invalidate `keys.followups` after any
+appointment write (it also refreshes the sidebar badge).
 
 ## Rules that are easy to break
 

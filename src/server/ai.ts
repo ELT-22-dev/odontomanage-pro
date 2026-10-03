@@ -149,3 +149,57 @@ Priorize o que muda a conduta: alertas de saude, tratamentos em andamento e o qu
     mapAiError(err)
   }
 }
+
+// ── 3) Mensagem de follow-up (WhatsApp) ──────────────────────────────────────
+
+export const FollowupMessage = z.object({
+  message: z.string().describe('Mensagem pronta para WhatsApp, comecando com "Ola {nome}!"'),
+})
+
+export interface FollowupMessageContext {
+  clinicName: string
+  kindLabel: string
+  reason: string
+  /** Dias desde a consulta/procedimento de origem, se houver. */
+  daysSinceOrigin: number | null
+  originType: string | null
+  attempts: number
+  lastOutcome: string | null
+}
+
+/**
+ * Redige uma mensagem de follow-up. NAO recebe nome nem contato do paciente:
+ * a IA escreve "{nome}" e o navegador troca pelo primeiro nome na hora de abrir
+ * o WhatsApp.
+ */
+export async function draftFollowupMessage(ctx: FollowupMessageContext): Promise<string> {
+  const lines = [
+    `Clinica: ${ctx.clinicName}`,
+    `Tipo de follow-up: ${ctx.kindLabel}`,
+    `Motivo: ${ctx.reason}`,
+    ctx.originType ? `Atendimento de origem: ${ctx.originType}${ctx.daysSinceOrigin !== null ? ` (ha ${ctx.daysSinceOrigin} dias)` : ''}` : null,
+    `Tentativas de contato anteriores: ${ctx.attempts}${ctx.lastOutcome ? ` (ultimo resultado: ${ctx.lastOutcome})` : ''}`,
+  ].filter(Boolean)
+  try {
+    const response = await getClient().beta.messages.parse({
+      model: AI_MODEL,
+      max_tokens: 2000,
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      output_config: { effort: 'low', format: betaZodOutputFormat(FollowupMessage) },
+      system: `Voce escreve mensagens de WhatsApp da recepcao de uma clinica odontologica no Brasil para pacientes.
+Tom: humano, caloroso e profissional; frases curtas; no maximo 3 frases; no maximo 1 emoji (opcional).
+Regras:
+- Comece com "Ola {nome}!" — escreva literalmente {nome}; o sistema troca pelo nome do paciente.
+- Identifique a clinica pelo nome recebido.
+- Pos-procedimento: pergunte como o paciente esta e ofereca ajuda; nunca de orientacao medica nem cite medicamentos.
+- Retorno, orcamento ou reativacao: convide a agendar e termine com uma pergunta simples (dia/periodo preferido).
+- Se ja houve tentativas sem resposta, seja breve e gentil, sem cobrar.
+- Nunca invente valores, datas, diagnosticos ou promocoes.`,
+      messages: [{ role: 'user', content: lines.join('\n') }],
+    })
+    return unwrap(response).message
+  } catch (err) {
+    mapAiError(err)
+  }
+}

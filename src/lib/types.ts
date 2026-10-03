@@ -145,3 +145,54 @@ export interface AiPatientSummary {
   pending: string[]
   last_visit: string
 }
+
+export type FollowupKind = 'recall' | 'post_procedure' | 'quote' | 'reactivation' | 'other'
+export type FollowupStatus = 'pending' | 'done' | 'dismissed'
+export type FollowupOutcome = 'contacted' | 'scheduled' | 'no_answer' | 'declined'
+
+export interface Followup {
+  id: string
+  patient_id: string
+  patient_name: string
+  patient_phone: string | null
+  patient_whatsapp: string | null
+  kind: FollowupKind
+  due_date: string
+  reason: string
+  status: FollowupStatus
+  outcome: FollowupOutcome | null
+  notes: string | null
+  attempts: number
+  last_contact_at: string | null
+  appointment_id: string | null
+  appointment_type: string | null
+  appointment_date: string | null
+  rule_id: string | null
+  completed_by_name: string | null
+  completed_at: string | null
+  created_at: string
+}
+
+export interface FollowupRule {
+  id: string
+  appointment_type: string
+  kind: 'recall' | 'post_procedure' | 'quote'
+  days_after: number
+  reason: string
+  active: boolean
+}
+
+export interface FollowupSettings {
+  /** Textos-modelo por tipo; tipo ausente = texto padrao (lib/followup.ts). */
+  templates: Partial<Record<FollowupKind, string>>
+  inactive_months: number
+}
+
+export interface InactivePatient {
+  id: string
+  name: string
+  phone: string | null
+  whatsapp: string | null
+  last_visit: string
+  last_type: string
+}

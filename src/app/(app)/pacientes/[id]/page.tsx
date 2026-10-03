@@ -15,10 +15,12 @@ import { RecordDialog } from '@/components/RecordDialog'
 import { useIsAdmin } from '@/components/SessionProvider'
 import { StatusBadge } from '@/components/StatusBadge'
 import { TransactionDialog } from '@/components/TransactionDialog'
+import { FollowupFormDialog } from '@/components/followup/FollowupFormDialog'
+import { FollowupList } from '@/components/followup/FollowupList'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { keys, useAppointments, useClinicName, useInvalidate, usePatient, useRecords, useTransactions } from '@/hooks/queries'
+import { keys, useAppointments, useClinicName, useFollowups, useInvalidate, usePatient, useRecords, useTransactions } from '@/hooks/queries'
 import { useDialog } from '@/hooks/useDialog'
 import { api, errorMessage } from '@/lib/api'
 import { ageFrom, formatDate, formatDateTime, todayISO } from '@/lib/dates'
@@ -40,10 +42,12 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
   const { data: appointments = [] } = useAppointments({ patientId: id })
   const { data: records = [] } = useRecords(id)
   const { data: transactions = [] } = useTransactions(id)
+  const { data: followups = [] } = useFollowups({ patientId: id, status: 'all' })
 
   const apptDialog = useDialog<Appointment>()
   const recordDialog = useDialog<MedicalRecord>()
   const txDialog = useDialog<Transaction>()
+  const followupDialog = useDialog<null>()
 
   if (isLoading) return <Loading />
   if (error || !patient) {
@@ -153,6 +157,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           <TabsTrigger value="appointments">Consultas ({appointments.length})</TabsTrigger>
           <TabsTrigger value="records">Prontuario ({records.length})</TabsTrigger>
           <TabsTrigger value="finance">Financeiro ({transactions.length})</TabsTrigger>
+          <TabsTrigger value="followup">Follow-up ({followups.filter((f) => f.status === 'pending').length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="info" className="space-y-6 mt-4">
@@ -263,6 +268,15 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
           )}
         </TabsContent>
 
+        <TabsContent value="followup" className="mt-4 space-y-3">
+          <div className="flex justify-end">
+            <Button size="sm" className="gap-2" onClick={() => followupDialog.open()}>
+              <Plus className="size-4" /> Novo follow-up
+            </Button>
+          </div>
+          <FollowupList followups={followups} hidePatient emptyTitle="Nenhum follow-up para este paciente" />
+        </TabsContent>
+
         <TabsContent value="finance" className="mt-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex gap-4 text-sm">
@@ -311,6 +325,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
 
       <AppointmentDialog key={`a${apptDialog.key}`} open={apptDialog.isOpen} onOpenChange={apptDialog.setOpen} appointment={apptDialog.item} defaultPatientId={patient.id} />
       <RecordDialog key={`r${recordDialog.key}`} open={recordDialog.isOpen} onOpenChange={recordDialog.setOpen} record={recordDialog.item} defaultPatientId={patient.id} />
+      <FollowupFormDialog key={`f${followupDialog.key}`} open={followupDialog.isOpen} onOpenChange={followupDialog.setOpen} defaultPatientId={patient.id} />
       <TransactionDialog key={`t${txDialog.key}`} open={txDialog.isOpen} onOpenChange={txDialog.setOpen} transaction={txDialog.item} defaultPatientId={patient.id} />
     </div>
   )

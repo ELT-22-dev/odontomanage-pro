@@ -161,6 +161,9 @@ erDiagram
   patients ||--o{ appointments : "CASCADE"
   patients ||--o{ transactions : "SET NULL"
   patients ||--o{ medical_records : "RESTRICT"
+  patients ||--o{ followups : "CASCADE"
+  appointments ||--o{ followups : "origem (SET NULL)"
+  followup_rules ||--o{ followups : "regra (SET NULL)"
 
   users {
     uuid id PK
@@ -237,6 +240,12 @@ Definição completa, com comentários: [`db/migrations/0001_init.sql`](../db/mi
 | `time` é texto `'HH:MM'` com CHECK | Simples, ordenável, sem fuso. |
 | Usuários nunca são excluídos, só desativados | A auditoria e os prontuários referenciam quem fez. |
 | "Hoje" é calculado no fuso `America/Sao_Paulo` | O servidor da Vercel roda em UTC; ver `src/lib/dates.ts`. |
+| Follow-up automático só na **transição** de status | Índices únicos parciais (`followups_rule_once`, `followups_noshow_once`) garantem que finalizar/marcar falta de novo não duplica. |
+
+Tabelas de follow-up (migration `0003_followups.sql`): `followups` (fila: paciente, tipo
+`recall|post_procedure|quote|reactivation|other`, `due_date`, motivo, status
+`pending|done|dismissed`, resultado, tentativas, origem) e `followup_rules` (procedimento contém
+X → tipo → +N dias). Em `clinic_settings`: `followup_templates` (jsonb) e `inactive_months`.
 
 ### 5.2 Migrations (como mudar o banco)
 
@@ -332,6 +341,17 @@ permissão/origem · `404` não encontrado · `409` conflito (duplicado, víncul
 | `GET /api/ai/status` · `PUT /api/ai/status` | todos · admin | IA configurada/ligada · liga/desliga |
 | `POST /api/ai/structure-note` | todos (IA ligada) | anotação livre → campos do prontuário (não salva) |
 | `POST /api/ai/patient-summary` | todos (IA ligada) | resumo do histórico, sem dados identificadores (não salva) |
+| `POST /api/ai/followup-message` | todos (IA ligada) | sugere mensagem de WhatsApp com `{nome}` (sem dados do paciente) |
+| `GET /api/followups?status&to&patient_id` · `POST /api/followups` | todos | fila de follow-up (padrão: pendentes) / criar manual |
+| `PATCH /api/followups/:id` · `POST /api/followups/:id/contact` | todos | resultado, concluir, dispensar, reabrir, adiar / contar tentativa |
+| `GET /api/followups/count` · `GET /api/followups/inactive` | todos | pendentes até hoje (selo do menu) / pacientes sem visita há X meses |
+| `GET /api/followup-rules` · `POST`, `PATCH/DELETE /:id` | todos · admin | regras automáticas |
+| `GET /api/followup-settings` · `PUT` | todos · admin | mensagens-modelo e meses para "sem visita" |
+
+**Efeitos colaterais nas consultas:** `PATCH /api/appointments/:id` com status `completed` aplica
+as regras (resposta traz `followups_created`); com `no_show` cria follow-up de reagendamento.
+`POST /api/appointments` encerra os follow-ups pendentes de retorno/orçamento/reativação do
+paciente como "agendou" (resposta traz `followups_closed`). Pós-procedimento continua.
 
 ## 8. Variáveis de ambiente
 
@@ -360,6 +380,13 @@ npm run db:migrate                # cria as tabelas
 npm run dev                       # http://localhost:3000 → abre a configuração inicial
 npm run db:seed-demo              # (opcional) dados fictícios, depois de criar o admin
 ```
+
+Sem instalar Postgres (útil quando o Windows bloqueia executáveis): **PGlite**, o PostgreSQL
+compilado para WebAssembly, roda dentro do Node:
+`npm i -g @electric-sql/pglite @electric-sql/pglite-socket` e
+`pglite-server --db=memory:// --port=5433 --max-connections=10`
+→ `DATABASE_URL=postgres://postgres@127.0.0.1:5433/postgres?sslmode=disable` (banco em memória:
+zera ao parar — ótimo para o E2E).
 
 Postgres rápido com Docker:
 `docker run -d --name odonto-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=odonto -p 5432:5432 postgres:16`
@@ -457,7 +484,24 @@ Custo: cobrança por uso na conta Anthropic (tokens). Uma anotação organizada 
 tipicamente frações de centavo de dólar a poucos centavos; o limite por hora evita surpresas.
 Para trocar o modelo (ex.: um mais barato), altere `AI_MODEL` em `src/server/ai.ts`.
 
-### 10.6 Fluxo de atualização (depois da entrega)
+### 10.6 Follow-up de pacientes
+
+Tela **Follow-up** (`src/app/(app)/follow-up`) + `src/server/repos/followups.ts` + `src/lib/followup.ts`.
+
+- **Gerado sozinho:** ao finalizar consulta (regras editáveis em Configurações → Follow-up; as 11
+  regras iniciais cobrem extração, canal, implante, cirurgia, clareamento, limpeza, ortodontia e
+  avaliação/orçamento) e ao marcar falta.
+- **Fecha sozinho:** nova consulta agendada encerra retorno/orçamento/reativação do paciente.
+- **Pacientes sem visita:** lista calculada na hora (sem consulta realizada há X meses, nada
+  marcado, nenhum follow-up pendente); a recepção cria o follow-up com 1 clique.
+- **Contato:** mensagem-modelo (editável) ou sugerida pela IA → abre o WhatsApp (`wa.me`, sem custo)
+  → registra resultado (conversou / agendou / não respondeu → nova tentativa em N dias / não quer).
+- **Envio automático** (sem a recepção clicar) **não** está implementado: exigiria WhatsApp
+  Business API ou provedor pago (Z-API, Twilio). O ponto de extensão é `FollowupContactDialog`
+  (troque `openWhatsApp` por uma chamada a uma rota que envia pelo provedor) + um cron (Vercel Cron)
+  que percorra `GET /api/followups?to=hoje`.
+
+### 10.7 Fluxo de atualização (depois da entrega)
 
 ```
 branch → commit → git push → Pull Request (CI roda) → merge na main → Vercel publica sozinha
@@ -501,7 +545,7 @@ pg_restore --no-owner -d "$NOVO_DATABASE_URL" odonto-AAAA-MM-DD.dump
 | Tipos | `npm run typecheck` | TypeScript estrito em todo o projeto |
 | Lint | `npm run lint` | regras do Next.js + React Hooks |
 | Unitários | `npm test` | datas/fuso, cálculos do financeiro, CPF/telefone, importação CSV |
-| **Ponta a ponta** | `npm run test:e2e` | ~67 verificações: setup, login, CRUD de tudo, conflito de agenda, permissões admin×equipe, bloqueio de senha, sessões derrubadas, CSRF, backup, auditoria — contra servidor **e banco reais** |
+| **Ponta a ponta** | `npm run test:e2e` | ~88 verificações (inclui follow-up): setup, login, CRUD de tudo, conflito de agenda, permissões admin×equipe, bloqueio de senha, sessões derrubadas, CSRF, backup, auditoria — contra servidor **e banco reais** |
 
 > ⚠️ **Nunca rode o E2E no banco de produção.** Ele cria um admin de teste cuja senha está no
 > próprio script (que é público). O script se recusa a rodar se o banco já tiver usuários

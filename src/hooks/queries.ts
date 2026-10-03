@@ -9,7 +9,8 @@ import { useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { api } from '@/lib/api'
 import type {
-  AiStatus, Appointment, AuditEntry, ClinicSettings, MedicalRecord, Patient, Transaction, User,
+  AiStatus, Appointment, AuditEntry, ClinicSettings, Followup, FollowupRule, FollowupSettings, InactivePatient,
+  MedicalRecord, Patient, Transaction, User,
 } from '@/lib/types'
 
 export const keys = {
@@ -23,6 +24,9 @@ export const keys = {
   users: ['users'] as const,
   audit: ['audit'] as const,
   ai: ['ai-status'] as const,
+  followups: ['followups'] as const,
+  followupRules: ['followup-rules'] as const,
+  followupSettings: ['followup-settings'] as const,
 }
 
 function qs(params: Record<string, string | null | undefined>) {
@@ -92,3 +96,31 @@ export function useAiEnabled() {
   const { data } = useAiStatus()
   return !!(data?.configured && data?.enabled)
 }
+
+// ── Follow-up ── (tudo sob keys.followups: invalidar uma vez atualiza fila, contador e sumidos)
+export const useFollowups = (filters: { status?: 'pending' | 'done' | 'dismissed' | 'all'; to?: string; patientId?: string } = {}) =>
+  useQuery({
+    queryKey: [...keys.followups, 'list', filters],
+    queryFn: () =>
+      api.get<Followup[]>(`/api/followups${qs({ status: filters.status, to: filters.to, patient_id: filters.patientId })}`),
+  })
+
+export const useFollowupCount = () =>
+  useQuery({
+    queryKey: [...keys.followups, 'count'],
+    queryFn: () => api.get<{ due: number }>('/api/followups/count'),
+    refetchInterval: 5 * 60_000,
+  })
+
+export const useInactivePatients = (enabled = true) =>
+  useQuery({
+    queryKey: [...keys.followups, 'inactive'],
+    queryFn: () => api.get<{ months: number; patients: InactivePatient[] }>('/api/followups/inactive'),
+    enabled,
+  })
+
+export const useFollowupRules = () =>
+  useQuery({ queryKey: keys.followupRules, queryFn: () => api.get<FollowupRule[]>('/api/followup-rules') })
+
+export const useFollowupSettings = () =>
+  useQuery({ queryKey: keys.followupSettings, queryFn: () => api.get<FollowupSettings>('/api/followup-settings') })

@@ -3,7 +3,9 @@ import { requireUser } from '@/server/auth'
 import { audit } from '@/server/audit'
 import { json, notFound, parseId, readBody, route } from '@/server/http'
 import { deleteAppointment, findConflict, getAppointment, updateAppointment } from '@/server/repos/appointments'
+import { applyRulesForCompletedAppointment, createNoShowFollowup } from '@/server/repos/followups'
 import { updateAppointmentSchema } from '@/server/schemas'
+import { todayISO } from '@/lib/dates'
 
 type P = { id: string }
 
@@ -29,9 +31,16 @@ export const PATCH = route<P>(async (req: NextRequest, { params }) => {
       return json({ error: `Conflito: ja existe consulta as ${conflict.time} com ${conflict.patient_name}.`, conflict: true }, 409)
     }
   }
-  const appt = await updateAppointment(id, data)
-  await audit(req, user, 'update', 'appointment', id, { fields: Object.keys(data), status: data.status })
-  return json(appt)
+  const appt = (await updateAppointment(id, data))!
+
+  // Follow-up automatico: so na TRANSICAO de status (salvar de novo nao repete).
+  let followupsCreated = 0
+  if (data.status && data.status !== current.status) {
+    if (data.status === 'completed') followupsCreated = await applyRulesForCompletedAppointment(appt, user.id)
+    if (data.status === 'no_show') followupsCreated = await createNoShowFollowup(appt, todayISO(), user.id)
+  }
+  await audit(req, user, 'update', 'appointment', id, { fields: Object.keys(data), status: data.status, followups_created: followupsCreated || undefined })
+  return json({ ...appt, followups_created: followupsCreated })
 })
 
 export const DELETE = route<P>(async (req: NextRequest, { params }) => {

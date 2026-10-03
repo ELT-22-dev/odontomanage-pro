@@ -199,3 +199,46 @@ export const updateRecordSchema = z.object({
   ...recordFields,
   record_type: z.enum(['note', 'diagnosis', 'prescription', 'treatment']),
 }).partial()
+
+// ── Follow-up ───────────────────────────────────────────────────────────────
+export const FOLLOWUP_COLUMNS = [
+  'patient_id', 'kind', 'due_date', 'reason', 'status', 'outcome', 'notes', 'appointment_id',
+] as const
+
+const followupKind = z.enum(['recall', 'post_procedure', 'quote', 'reactivation', 'other'])
+const followupOutcome = z.enum(['contacted', 'scheduled', 'no_answer', 'declined'])
+
+export const createFollowupSchema = z.object({
+  patient_id: uuid,
+  kind: followupKind,
+  due_date: isoDate,
+  reason: reqText(300, 'motivo'),
+  notes: optText(2000),
+})
+
+export const updateFollowupSchema = z.object({
+  status: z.enum(['pending', 'done', 'dismissed']).optional(),
+  outcome: followupOutcome.nullable().optional(),
+  notes: optText(2000),
+  due_date: isoDate.optional(),
+  reason: reqText(300, 'motivo').optional(),
+})
+
+export const FOLLOWUP_RULE_COLUMNS = ['appointment_type', 'kind', 'days_after', 'reason', 'active'] as const
+
+const ruleFields = {
+  appointment_type: reqText(60, 'procedimento'),
+  kind: z.enum(['recall', 'post_procedure', 'quote']),
+  days_after: z.coerce.number().int().min(0).max(1095),
+  reason: reqText(300, 'motivo'),
+  active: z.boolean().optional(),
+}
+export const createRuleSchema = z.object(ruleFields)
+export const updateRuleSchema = z.object(ruleFields).partial()
+
+export const followupSettingsSchema = z.object({
+  templates: z.partialRecord(followupKind, z.string().trim().max(1000)).transform((t) =>
+    Object.fromEntries(Object.entries(t).filter(([, v]) => v && v.length > 0)),
+  ),
+  inactive_months: z.coerce.number().int().min(1).max(60),
+})

@@ -20,9 +20,12 @@ export function useAppointmentActions() {
   const updateStatus = useCallback(
     async (appt: Appointment, status: AppointmentStatus) => {
       try {
-        await api.patch(`/api/appointments/${appt.id}`, { status })
-        await invalidate(keys.appointments)
+        const res = await api.patch<{ followups_created?: number }>(`/api/appointments/${appt.id}`, { status })
+        await invalidate(keys.appointments, keys.followups)
         toast.success(`Status: ${APPOINTMENT_STATUS[status]?.label ?? status}`)
+        if (res.followups_created) {
+          toast.info(`${res.followups_created} follow-up(s) criado(s) automaticamente — veja em Follow-up`)
+        }
         if ((status === 'cancelled' || status === 'no_show') && appt.google_event_id) {
           deleteGoogleEvent(appt.google_event_id)
         }
@@ -38,7 +41,7 @@ export function useAppointmentActions() {
       if (!confirm(`Excluir a consulta de ${appt.patient_name}? Para manter historico, prefira "Cancelar".`)) return
       try {
         await api.del(`/api/appointments/${appt.id}`)
-        await invalidate(keys.appointments)
+        await invalidate(keys.appointments, keys.followups)
         toast.success('Consulta excluida')
         if (appt.google_event_id) deleteGoogleEvent(appt.google_event_id)
       } catch (err) {

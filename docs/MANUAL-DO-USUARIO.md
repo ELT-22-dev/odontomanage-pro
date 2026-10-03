@@ -59,6 +59,26 @@ Guia rápido para a equipe da clínica (recepção, dentistas e administração)
 - **Marcar como pago:** menu ⋯ do lançamento → Marcar como pago (a data do pagamento é preenchida).
 - **Exportar CSV:** aba Lançamentos → Exportar CSV (abre direto no Excel) — útil para o contador.
 
+## Follow-up (acompanhamento de pacientes)
+
+O menu **Follow-up** mostra quem precisa de contato hoje (o número vermelho no menu é a
+quantidade). Os follow-ups aparecem sozinhos:
+
+- **Pós-procedimento:** ao **finalizar** uma consulta de extração, canal, implante etc., o sistema
+  agenda os contatos de acompanhamento (ex.: 1 e 7 dias depois).
+- **Retorno:** ao finalizar uma limpeza, agenda o retorno de 6 meses (aparelho: 30 dias).
+- **Orçamento:** ao finalizar uma avaliação, lembra de perguntar sobre o plano de tratamento em 5 dias.
+- **Reativar:** paciente marcado como **Faltou** entra na fila para reagendar. Em "Pacientes sem
+  visita" aparecem os que não vêm há muito tempo — clique em **Criar follow-up**.
+
+Como usar: clique em **Contatar** → confira a mensagem (ou **Sugerir com IA**) → **Abrir WhatsApp**
+→ envie → volte ao sistema e marque o resultado (**Conversou**, **Agendou**, **Não respondeu** —
+o sistema agenda nova tentativa — ou **Não quer agora**). Se o paciente **agendar uma consulta**,
+os follow-ups de retorno/orçamento/reativação dele se encerram sozinhos.
+
+Também dá para criar um follow-up à mão (**Novo follow-up**) e ver o histórico na ficha do paciente
+(aba **Follow-up**). O administrador ajusta regras e textos em **Configurações → Follow-up**.
+
 ## Assistente de IA (se a clínica ligar)
 
 - **Organizar anotação:** em *Novo registro* do prontuário, escreva ou dite o atendimento do seu
@@ -78,7 +98,8 @@ Guia rápido para a equipe da clínica (recepção, dentistas e administração)
   quem saiu da clínica (o acesso cai na hora).
 - **Aparência:** tema claro, escuro ou igual ao do computador.
 - **Integrações:** conectar o Google Calendar para as consultas aparecerem na agenda do Google.
-- **Inteligência artificial** (admin liga/desliga): assistente de prontuário e resumo do paciente.
+- **Follow-up:** regras automáticas, textos das mensagens e após quantos meses o paciente conta como "sem visita".
+- **Inteligência artificial** (admin liga/desliga): assistente de prontuário, resumo do paciente e mensagens de follow-up.
 - **Dados:** importar/exportar pacientes (CSV) e, para o admin, baixar o backup completo.
 - **Auditoria** (admin): quem fez o quê e quando.
 
