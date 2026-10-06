@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { CalendarClock, CalendarPlus, CheckCircle, ClipboardCheck, MessageCircle, MoreHorizontal, RotateCcw, XCircle } from 'lucide-react'
+import { CalendarClock, CalendarPlus, CheckCircle, ClipboardCheck, MessageCircle, MoreHorizontal, Pencil, RotateCcw, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,12 +27,16 @@ export function dueLabel(due: string, today: string): { text: string; className:
 export function FollowupRow({
   followup: f,
   hidePatient = false,
+  onQuickSend,
+  sending = false,
   onContact,
   onOutcome,
   onSchedule,
 }: {
   followup: Followup
   hidePatient?: boolean
+  onQuickSend: () => void
+  sending?: boolean
   onContact: () => void
   onOutcome: () => void
   onSchedule: () => void
@@ -87,8 +91,8 @@ export function FollowupRow({
 
       <div className="flex items-center gap-1 shrink-0">
         {pending && (
-          <Button size="sm" variant="outline" className="gap-1.5 h-8" onClick={onContact}>
-            <MessageCircle className="size-3.5" /> <span className="hidden sm:inline">Contatar</span>
+          <Button size="sm" className="gap-1.5 h-8" onClick={onQuickSend} disabled={sending} title="Envia a mensagem-modelo no WhatsApp com um clique">
+            <MessageCircle className="size-3.5" /> <span className="hidden sm:inline">{sending ? 'Enviando...' : 'Enviar'}</span>
           </Button>
         )}
         <DropdownMenu>
@@ -100,6 +104,9 @@ export function FollowupRow({
           <DropdownMenuContent align="end" className="w-52">
             {pending ? (
               <>
+                <DropdownMenuItem onClick={onContact}>
+                  <Pencil className="size-3.5 mr-2" /> Editar mensagem antes de enviar
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={onOutcome}>
                   <ClipboardCheck className="size-3.5 mr-2" /> Registrar resultado
                 </DropdownMenuItem>

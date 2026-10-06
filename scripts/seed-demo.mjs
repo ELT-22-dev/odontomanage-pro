@@ -87,7 +87,27 @@ try {
     [ids[3], userId, ids[2]],
   )
 
-  console.log(`Dados de demonstracao criados: ${patients.length} pacientes, ${appts.length} consultas, ${txs.length} lancamentos, 2 prontuarios.`)
+  // Follow-ups de exemplo (um de cada tipo, com prazos variados) para a tela
+  // de Follow-up ja aparecer com fila para demonstrar sem esperar as regras
+  // automaticas (que so disparam quando uma consulta real e finalizada).
+  const followups = [
+    [0, 'recall', -2, 'Retorno semestral de limpeza'],
+    [1, 'post_procedure', 0, 'Pos-tratamento de canal: dor ou sensibilidade?'],
+    [2, 'quote', 1, 'Retorno sobre o orcamento / plano de tratamento'],
+    [3, 'reactivation', 0, 'Sem consulta ha mais de 6 meses — reativar'],
+    [4, 'post_procedure', 3, 'Pos-clareamento: sensibilidade?'],
+  ]
+  for (const [p, kind, offset, reason] of followups) {
+    await client.query(
+      `insert into followups (patient_id, kind, due_date, reason, created_by)
+       values ($1, $2, $3, $4, $5)`,
+      [ids[p], kind, day(offset), reason, userId],
+    )
+  }
+
+  console.log(
+    `Dados de demonstracao criados: ${patients.length} pacientes, ${appts.length} consultas, ${txs.length} lancamentos, 2 prontuarios, ${followups.length} follow-ups.`,
+  )
 } finally {
   await client.end()
 }
